@@ -99,11 +99,16 @@
         </view>
       </view>
     </view>
+
+    <!-- 退出登录按钮 -->
+    <view class="logout-section">
+      <wd-button type="danger" block @click="handleLogout">退出登录</wd-button>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/utils/toast'
@@ -111,6 +116,7 @@ import { showToast } from '@/utils/toast'
 const router = useRouter()
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo)
+const isSeller = computed(() => userStore.isSeller)
 
 // 统计数据
 const stats = ref({
@@ -150,6 +156,19 @@ const handleFarmAction = (action: 'weeding' | 'watering' | 'fertilizing' | 'harv
   }
   // TODO: 实现农场操作逻辑
   showToast('功能开发中')
+}
+
+// 退出登录
+const handleLogout = () => {
+  uni.showModal({
+    title: '提示',
+    content: '确定要退出登录吗？',
+    success: (res) => {
+      if (res.confirm) {
+        userStore.logout()
+      }
+    },
+  })
 }
 
 // 获取用户数据
@@ -351,5 +370,9 @@ onMounted(() => {
       color: #666;
     }
   }
+}
+
+.logout-section {
+  padding: 40rpx 0;
 }
 </style>

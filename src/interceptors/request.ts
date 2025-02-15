@@ -3,6 +3,7 @@ import qs from 'qs'
 import { useUserStore } from '@/store'
 import { platform } from '@/utils/platform'
 import { getEnvBaseUrl } from '@/utils'
+import type { App } from 'vue'
 
 export type CustomRequestOptions = UniApp.RequestOptions & {
   query?: Record<string, any>
@@ -59,10 +60,59 @@ const httpInterceptor = {
 }
 
 export const requestInterceptor = {
-  install() {
-    // 拦截 request 请求
-    uni.addInterceptor('request', httpInterceptor)
-    // 拦截 uploadFile 文件上传
-    uni.addInterceptor('uploadFile', httpInterceptor)
+  install(app: App) {
+    uni.addInterceptor('request', {
+      invoke(options) {
+        // 添加 token
+        const userStore = useUserStore()
+        if (userStore.token) {
+          options.header = {
+            ...options.header,
+            Authorization: 'Bearer ' + userStore.token,
+          }
+        }
+
+        // 显示加载中
+        uni.showLoading({ title: '加载中...' })
+      },
+      success(res) {
+        // 隐藏加载中
+        uni.hideLoading()
+
+        // 处理响应
+        if (res.statusCode === 401) {
+          // token 过期，清除用户信息并跳转到登录页
+          const userStore = useUserStore()
+          userStore.logout()
+          uni.navigateTo({ url: '/pages/login/index' })
+          return false
+        }
+
+        if (res.statusCode !== 200) {
+          // 显示错误信息
+          uni.showToast({
+            title: res.data?.message || '请求失败',
+            icon: 'none',
+          })
+          return false
+        }
+
+        return res.data
+      },
+      fail(err) {
+        // 隐藏加载中
+        uni.hideLoading()
+
+        // 显示错误信息
+        uni.showToast({
+          title: err.errMsg || '网络错误',
+          icon: 'none',
+        })
+
+        return false
+      },
+    })
   },
 }
+
+export default requestInterceptor

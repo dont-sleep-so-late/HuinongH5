@@ -17,6 +17,7 @@ import UnoCSS from 'unocss/vite'
 import AutoImport from 'unplugin-auto-import/vite'
 import ViteRestart from 'vite-plugin-restart'
 import { copyNativeRes } from './vite-plugins/copyNativeRes'
+import { resolve } from 'path'
 
 // https://vitejs.dev/config/
 export default ({ command, mode }) => {
@@ -124,7 +125,7 @@ export default ({ command, mode }) => {
 
     resolve: {
       alias: {
-        '@': path.join(process.cwd(), './src'),
+        '@': resolve(__dirname, 'src'),
         '@img': path.join(process.cwd(), './src/static/images'),
       },
     },

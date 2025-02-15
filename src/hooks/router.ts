@@ -13,15 +13,21 @@ interface RouterOptions {
   events?: AnyObject
 }
 
+interface NavigateOptions {
+  [key: string]: string | number | boolean
+}
+
 export const useRouter = () => {
   const loading = ref(false)
 
-  const navigate = (options: RouterOptions | string) => {
-    if (typeof options === 'string') {
-      uni.navigateTo({ url: options })
-      return
+  const navigate = (url: string, params?: NavigateOptions) => {
+    if (params) {
+      const query = Object.entries(params)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('&')
+      url = `${url}?${query}`
     }
-    uni.navigateTo(options)
+    uni.navigateTo({ url })
   }
 
   const redirect = (options: RouterOptions | string) => {
@@ -40,12 +46,12 @@ export const useRouter = () => {
     uni.navigateBack({ delta })
   }
 
-  const reLaunch = (options: RouterOptions | string) => {
-    if (typeof options === 'string') {
-      uni.reLaunch({ url: options })
-      return
-    }
-    uni.reLaunch(options)
+  const reLaunch = (url: string) => {
+    uni.reLaunch({ url })
+  }
+
+  const redirectTo = (url: string) => {
+    uni.redirectTo({ url })
   }
 
   return {
@@ -55,5 +61,6 @@ export const useRouter = () => {
     switchTab,
     back,
     reLaunch,
+    redirectTo,
   }
 }

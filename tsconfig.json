@@ -1,39 +1,23 @@
 {
   "compilerOptions": {
-    "composite": true,
-    "skipLibCheck": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "resolveJsonModule": true,
-    "noImplicitThis": true,
-    "allowSyntheticDefaultImports": true,
-    "allowJs": true,
+    "target": "esnext",
+    "module": "esnext",
+    "strict": true,
+    "jsx": "preserve",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
     "sourceMap": true,
-    "baseUrl": ".",
+    "skipLibCheck": true,
+    "importHelpers": true,
+    "allowSyntheticDefaultImports": true,
+    "useDefineForClassFields": true,
+    "resolveJsonModule": true,
+    "lib": ["esnext", "dom"],
+    "types": ["@dcloudio/types"],
     "paths": {
       "@/*": ["./src/*"]
-    },
-    "outDir": "dist",
-    "lib": ["esnext", "dom"],
-    "types": [
-      "@dcloudio/types",
-      "@uni-helper/uni-types",
-      "@types/wechat-miniprogram",
-      "wot-design-uni/global.d.ts",
-      "z-paging/types"
-    ]
+    }
   },
-  "vueCompilerOptions": {
-    "plugins": ["@uni-helper/uni-types/volar-plugin"]
-  },
-  "exclude": ["node_modules"],
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.js",
-    "src/**/*.d.ts",
-    "src/**/*.tsx",
-    "src/**/*.jsx",
-    "src/**/*.vue",
-    "src/**/*.json"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "exclude": ["node_modules", "dist"]
 }

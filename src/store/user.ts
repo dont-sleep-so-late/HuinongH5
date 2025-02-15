@@ -1,64 +1,52 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import { getToken, setToken, getUserInfo, setUserInfo, clearLoginInfo } from '@/utils/auth'
+import type { UserInfo } from '@/types/user'
+import { switchTabBar } from '@/utils/menu'
 
-export interface UserInfo {
-  id: number
-  phone: string
-  nickname: string
-  avatar: string
-  [key: string]: any
+export interface UserState {
+  token: string
+  userInfo: UserInfo | null
 }
 
-export const useUserStore = defineStore('user', () => {
-  // 用户信息
-  const userInfo = ref<UserInfo | null>(getUserInfo())
+export const useUserStore = defineStore('user', {
+  state: (): UserState => ({
+    token: uni.getStorageSync('token') || '',
+    userInfo: uni.getStorageSync('userInfo') || null,
+  }),
 
-  // 登录状态
-  const isLogin = ref(!!getToken())
+  getters: {
+    isLoggedIn: (state) => !!state.token,
+    isSeller: (state) => state.userInfo?.role === 'seller',
+  },
 
-  // 设置用户信息
-  const setUser = (user: UserInfo) => {
-    userInfo.value = user
-    setUserInfo(user)
-  }
+  actions: {
+    // 设置用户信息
+    setUserInfo(userInfo: UserInfo) {
+      this.userInfo = userInfo
+      uni.setStorageSync('userInfo', userInfo)
+      // 切换菜单
+      switchTabBar(userInfo.role)
+    },
 
-  // 设置token
-  const updateToken = (token: string) => {
-    setToken(token)
-    isLogin.value = true
-  }
+    // 设置token
+    setToken(token: string) {
+      this.token = token
+      uni.setStorageSync('token', token)
+    },
 
-  // 登录
-  const login = (data: { token: string; userInfo: UserInfo }) => {
-    const { token, userInfo: user } = data
-    updateToken(token)
-    setUser(user)
-  }
+    // 退出登录
+    logout() {
+      this.token = ''
+      this.userInfo = null
+      uni.removeStorageSync('token')
+      uni.removeStorageSync('userInfo')
 
-  // 退出登录
-  const logout = () => {
-    clearLoginInfo()
-    userInfo.value = null
-    isLogin.value = false
-  }
+      // 切换回买家菜单
+      switchTabBar('buyer')
 
-  // 更新用户信息
-  const updateUserInfo = (data: Partial<UserInfo>) => {
-    if (userInfo.value) {
-      const newUserInfo = {
-        ...userInfo.value,
-        ...data,
-      }
-      setUser(newUserInfo)
-    }
-  }
-
-  return {
-    userInfo,
-    isLogin,
-    login,
-    logout,
-    updateUserInfo,
-  }
+      // 跳转到登录页
+      uni.reLaunch({
+        url: '/pages/login/index',
+      })
+    },
+  },
 })

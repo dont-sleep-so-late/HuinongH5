@@ -4,7 +4,8 @@
  * 可以设置路由白名单，或者黑名单，看业务需要选哪一个
  * 我这里应为大部分都可以随便进入，所以使用黑名单
  */
-import { useUserStore } from '@/store'
+import type { App } from 'vue'
+import { useUserStore } from '@/store/user'
 import { needLoginPages as _needLoginPages, getNeedLoginPages } from '@/utils'
 
 // TODO Check
@@ -12,10 +13,25 @@ const loginRoute = '/pages/login/index'
 
 const isLogined = () => {
   const userStore = useUserStore()
-  return userStore.isLogined
+  return userStore.isLoggedIn
 }
 
 const isDev = import.meta.env.DEV
+
+// 需要登录的页面
+const authPages = [
+  '/pages-sub/user/verify',
+  '/pages-sub/user/settings',
+  '/pages-sub/user/follow-goods',
+  '/pages-sub/user/follow-shops',
+  '/pages-sub/user/footprints',
+  '/pages-sub/user/purchase-records',
+  '/pages/shelf/index',
+  '/pages/publish/index',
+]
+
+// 需要实名认证的页面
+const verifyPages = ['/pages/publish/index']
 
 // 黑名单登录拦截器 - （适用于大部分页面不需要登录，少部分页面需要登录）
 const navigateToInterceptor = {
@@ -45,10 +61,54 @@ const navigateToInterceptor = {
 }
 
 export const routeInterceptor = {
-  install() {
-    uni.addInterceptor('navigateTo', navigateToInterceptor)
-    uni.addInterceptor('reLaunch', navigateToInterceptor)
-    uni.addInterceptor('redirectTo', navigateToInterceptor)
-    uni.addInterceptor('switchTab', navigateToInterceptor)
+  install(app: App) {
+    uni.addInterceptor('navigateTo', {
+      invoke(e) {
+        return checkAuth(e.url)
+      },
+    })
+
+    uni.addInterceptor('redirectTo', {
+      invoke(e) {
+        return checkAuth(e.url)
+      },
+    })
+
+    uni.addInterceptor('reLaunch', {
+      invoke(e) {
+        return checkAuth(e.url)
+      },
+    })
+
+    uni.addInterceptor('switchTab', {
+      invoke(e) {
+        return checkAuth(e.url)
+      },
+    })
   },
 }
+
+// 检查权限
+function checkAuth(url: string) {
+  // 提取页面路径
+  const path = url.split('?')[0]
+
+  // 检查是否需要登录
+  if (authPages.includes(path)) {
+    const userStore = useUserStore()
+    if (!userStore.isLoggedIn) {
+      uni.navigateTo({ url: '/pages/login/index' })
+      return false
+    }
+
+    // 检查是否需要实名认证
+    if (verifyPages.includes(path) && !userStore.userInfo?.isVerified) {
+      uni.navigateTo({ url: '/pages-sub/user/verify' })
+      return false
+    }
+  }
+
+  return true
+}
+
+export default routeInterceptor

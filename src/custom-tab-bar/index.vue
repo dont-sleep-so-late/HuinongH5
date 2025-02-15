@@ -54,7 +54,7 @@ const buyerTabs = [
 const sellerTabs = [
   {
     pagePath: '/pages/index/index',
-    text: '首页',
+    text: '商城',
     iconPath: '/static/tabbar/home.png',
     selectedIconPath: '/static/tabbar/homeHL.png',
   },
@@ -69,12 +69,6 @@ const sellerTabs = [
     text: '消息',
     iconPath: '/static/tabbar/message.png',
     selectedIconPath: '/static/tabbar/messageHL.png',
-  },
-  {
-    pagePath: '/pages/publish/index',
-    text: '上架',
-    iconPath: '/static/tabbar/publish.png',
-    selectedIconPath: '/static/tabbar/publishHL.png',
   },
   {
     pagePath: '/pages/user/index',

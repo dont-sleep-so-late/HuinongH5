@@ -1,5 +1,9 @@
+import type { App } from 'vue'
+import { http } from '@/utils/http'
+import { api } from '@/utils/api'
+
 export const prototypeInterceptor = {
-  install() {
+  install(app: App) {
     // 解决低版本手机不识别 array.at() 导致运行报错的问题
     if (typeof Array.prototype.at !== 'function') {
       // eslint-disable-next-line no-extend-native
@@ -9,5 +13,15 @@ export const prototypeInterceptor = {
         return this[index]
       }
     }
+
+    // 挂载 http 工具
+    uni.$http = http
+    app.config.globalProperties.$http = http
+
+    // 挂载 api 实例
+    uni.$api = api
+    app.config.globalProperties.$api = api
   },
 }
+
+export default prototypeInterceptor

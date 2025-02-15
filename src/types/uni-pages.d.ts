@@ -15,12 +15,31 @@ interface NavigateToOptions {
        "/pages/register/index" |
        "/pages/role/index" |
        "/pages/shelf/index" |
-       "/pages/user/index";
+       "/pages/user/index" |
+       "/pages-sub/data/price" |
+       "/pages-sub/data/forecast" |
+       "/pages-sub/data/planting" |
+       "/pages-sub/farm/index" |
+       "/pages-sub/user/verify" |
+       "/pages-sub/user/settings" |
+       "/pages-sub/user/address" |
+       "/pages-sub/user/address-edit" |
+       "/pages-sub/user/follow-goods" |
+       "/pages-sub/user/follow-shops" |
+       "/pages-sub/user/footprints" |
+       "/pages-sub/user/purchase-records" |
+       "/pages-sub/goods/detail" |
+       "/pages-sub/goods/edit" |
+       "/pages-sub/order/list" |
+       "/pages-sub/order/detail" |
+       "/pages-sub/order/create" |
+       "/pages-sub/order/review" |
+       "/pages-sub/order/logistics";
 }
 interface RedirectToOptions extends NavigateToOptions {}
 
 interface SwitchTabOptions {
-  url: "/pages/index/index" | "/pages/category/index" | "/pages/cart/index" | "/pages/user/index"
+  url: "/pages/index/index" | "/pages/category/index" | "/pages/message/index" | "/pages/cart/index" | "/pages/user/index"
 }
 
 type ReLaunchOptions = NavigateToOptions | SwitchTabOptions;
