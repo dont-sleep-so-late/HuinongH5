@@ -1,7 +1,7 @@
 {
   "globalStyle": {
     "navigationStyle": "default",
-    "navigationBarTitleText": "unibest",
+    "navigationBarTitleText": "惠农商城",
     "navigationBarBackgroundColor": "#f8f8f8",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#FFFFFF"
@@ -14,26 +14,34 @@
     }
   },
   "tabBar": {
+    "custom": true,
     "color": "#999999",
     "selectedColor": "#018d71",
-    "backgroundColor": "#F8F8F8",
-    "borderStyle": "black",
-    "height": "50px",
-    "fontSize": "10px",
-    "iconWidth": "24px",
-    "spacing": "3px",
+    "backgroundColor": "#f8f8f8",
     "list": [
       {
-        "iconPath": "static/tabbar/home.png",
-        "selectedIconPath": "static/tabbar/homeHL.png",
         "pagePath": "pages/index/index",
-        "text": "首页"
+        "text": "首页",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/homeHL.png"
       },
       {
+        "pagePath": "pages/category/index",
+        "text": "分类",
         "iconPath": "static/tabbar/example.png",
-        "selectedIconPath": "static/tabbar/exampleHL.png",
-        "pagePath": "pages/about/about",
-        "text": "关于"
+        "selectedIconPath": "static/tabbar/exampleHL.png"
+      },
+      {
+        "pagePath": "pages/cart/index",
+        "text": "购物车",
+        "iconPath": "static/tabbar/example.png",
+        "selectedIconPath": "static/tabbar/exampleHL.png"
+      },
+      {
+        "pagePath": "pages/user/index",
+        "text": "我的",
+        "iconPath": "static/tabbar/person.png",
+        "selectedIconPath": "static/tabbar/personHL.png"
       }
     ]
   },
@@ -52,6 +60,22 @@
       "style": {
         "navigationBarTitleText": "关于"
       }
+    },
+    {
+      "path": "pages/cart/index",
+      "type": "page"
+    },
+    {
+      "path": "pages/category/index",
+      "type": "page"
+    },
+    {
+      "path": "pages/message/index",
+      "type": "page"
+    },
+    {
+      "path": "pages/user/index",
+      "type": "page"
     }
   ],
   "subPackages": []

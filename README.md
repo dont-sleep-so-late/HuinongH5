@@ -1,86 +1,204 @@
-<p align="center">
-  <a href="https://github.com/feige996/unibest">
-    <img width="160" src="./src/static/logo.svg">
-  </a>
-</p>
+# 惠农商城系统
 
-<h1 align="center">
-  <a href="https://github.com/feige996/unibest" target="_blank">unibest - 最好的 uniapp 开发框架</a>
-</h1>
+基于 uniapp + Vue3 + TypeScript + Vite5 开发的多功能电商系统
 
-<div align="center">
-旧仓库 codercup 进不去了，star 也拿不回来，这里也展示一下那个地址的 star.
+## 项目功能
 
-[![GitHub Repo stars](https://img.shields.io/github/stars/codercup/unibest?style=flat&logo=github)](https://github.com/codercup/unibest)
-[![GitHub forks](https://img.shields.io/github/forks/codercup/unibest?style=flat&logo=github)](https://github.com/codercup/unibest)
+### 1. 商城基础功能
 
-</div>
+- 首页展示
+  - 轮播广告
+  - 商品分类导航
+  - 热销商品推荐
+  - 新品上架
+  - 限时特惠
+- 商品模块
+  - 商品分类管理
+  - 商品列表展示
+  - 商品详情页
+  - 商品搜索
+  - 商品规格管理
+  - 商品上下架
+- 购物车模块
 
-<div align="center">
+  - 商品加入购物车
+  - 购物车商品管理
+  - 商品数量修改
+  - 商品规格修改
+  - 购物车结算
 
-[![GitHub Repo stars](https://img.shields.io/github/stars/feige996/unibest?style=flat&logo=github)](https://github.com/feige996/unibest)
-[![GitHub forks](https://img.shields.io/github/forks/feige996/unibest?style=flat&logo=github)](https://github.com/feige996/unibest)
-[![star](https://gitee.com/feige996/unibest/badge/star.svg?theme=dark)](https://gitee.com/feige996/unibest/stargazers)
-[![fork](https://gitee.com/feige996/unibest/badge/fork.svg?theme=dark)](https://gitee.com/feige996/unibest/members)
-![node version](https://img.shields.io/badge/node-%3E%3D18-green)
-![pnpm version](https://img.shields.io/badge/pnpm-%3E%3D7.30-green)
-![GitHub package.json version (subfolder of monorepo)](https://img.shields.io/github/package-json/v/feige996/unibest)
-![GitHub License](https://img.shields.io/github/license/feige996/unibest)
+- 订单模块
+  - 订单创建
+  - 订单支付
+  - 订单列表
+  - 订单详情
+  - 订单状态跟踪
+  - 订单评价
+  - 退款/售后
 
-</div>
+### 2. 营销功能
 
-`unibest` —— 最好的 `uniapp` 开发模板，由 `uniapp` + `Vue3` + `Ts` + `Vite5` + `UnoCss` + `wot-ui` + `z-paging` 构成，使用了最新的前端技术栈，无需依靠 `HBuilderX`，通过命令行方式运行 `web`、`小程序` 和 `App`（编辑器推荐 `VSCode`，可选 `webstorm`）。
+- 优惠券系统
+  - 优惠券领取
+  - 优惠券使用
+  - 优惠券管理
+- 积分系统
+  - 积分获取
+  - 积分使用
+  - 积分明细
+- 拼团活动
+  - 拼团商品
+  - 拼团规则
+  - 拼团状态
+- 秒杀活动
+  - 秒杀商品
+  - 秒杀时间段
+  - 库存管理
+- 砍价活动
+  - 砍价商品
+  - 砍价规则
+  - 砍价记录
 
-`unibest` 内置了 `约定式路由`、`layout布局`、`请求封装`、`请求拦截`、`登录拦截`、`UnoCSS`、`i18n多语言` 等基础功能，提供了 `代码提示`、`自动格式化`、`统一配置`、`代码片段` 等辅助功能，让你编写 `uniapp` 拥有 `best` 体验 （ `unibest 的由来`）。
+### 3. 会员系统
 
-![](https://raw.githubusercontent.com/andreasbm/readme/master/screenshots/lines/rainbow.png)
+- 用户中心
+  - 用户注册
+  - 用户登录
+  - 个人信息管理
+  - 收货地址管理
+- 会员等级
+  - 会员权益
+  - 等级规则
+  - 成长值系统
+- 账户管理
+  - 余额充值
+  - 消费记录
+  - 积分明细
 
-<p align="center">
-  <a href="https://unibest.tech/" target="_blank">📖 文档地址(new)</a>
-  <span style="margin:0 10px;">|</span>
-  <a href="https://feige996.github.io/hello-unibest/" target="_blank">📱 DEMO 地址</a>
-</p>
+### 4. 商户管理
 
----
+- 店铺管理
+  - 店铺信息
+  - 营业状态
+  - 配送范围
+- 商品管理
+  - 商品上架
+  - 库存管理
+  - 价格管理
+- 订单管理
+  - 订单处理
+  - 发货管理
+  - 退款处理
 
-注意旧的地址 [codercup](https://github.com/codercup/unibest) 我进不去了，使用新的 [feige996](https://github.com/feige996/unibest)。PR和 issue 也请使用新地址，否则无法合并。
+### 5. 分销系统
 
-## ⚙️ 环境
+- 分销商管理
+  - 分销商申请
+  - 分销商等级
+  - 佣金规则
+- 佣金管理
+  - 佣金计算
+  - 佣金提现
+  - 佣金明细
 
-- node>=18
-- pnpm>=7.30
-- Vue Official>=2.1.10
-- TypeScript>=5.0
+## 技术架构
 
-## &#x1F4C2; 快速开始
+- 前端框架：uniapp + Vue3 + TypeScript
+- 构建工具：Vite5
+- UI组件：wot-design-uni
+- 状态管理：Pinia
+- 样式方案：UnoCSS
+- 请求库：uni-request
 
-执行 `pnpm create unibest` 创建项目
+## 开发规范
 
-执行 `pnpm i` 安装依赖
+1. 组件化开发
 
-执行 `pnpm dev` 运行 `H5`
+   - 公共组件放置在 components 目录
+   - 页面组件放置在 pages 目录
+   - 布局组件放置在 layouts 目录
 
-## 📦 运行（支持热更新）
+2. 数据管理
 
-- web平台： `pnpm dev:h5`, 然后打开 [http://localhost:9000/](http://localhost:9000/)。
-- weixin平台：`pnpm dev:mp-weixin` 然后打开微信开发者工具，导入本地文件夹，选择本项目的`dist/dev/mp-weixin` 文件。
-- APP平台：`pnpm dev:app`, 然后打开 `HBuilderX`，导入刚刚生成的`dist/dev/app` 文件夹，选择运行到模拟器(开发时优先使用)，或者运行的安卓/ios基座。
+   - 使用 Pinia 进行状态管理
+   - API 接口统一管理
+   - 数据格式统一规范
 
-## 🔗 发布
+3. 样式规范
 
-- web平台： `pnpm build:h5`，打包后的文件在 `dist/build/h5`，可以放到web服务器，如nginx运行。如果最终不是放在根目录，可以在 `manifest.config.ts` 文件的 `h5.router.base` 属性进行修改。
-- weixin平台：`pnpm build:mp-weixin`, 打包后的文件在 `dist/build/mp-weixin`，然后通过微信开发者工具导入，并点击右上角的“上传”按钮进行上传。
-- APP平台：`pnpm build:app`, 然后打开 `HBuilderX`，导入刚刚生成的`dist/build/app` 文件夹，选择发行 - APP云打包。
+   - 使用 UnoCSS 原子化 CSS
+   - 主题色统一配置
+   - 响应式布局
 
-## 📄 License
+4. 代码规范
+   - ESLint + Prettier 代码格式化
+   - TypeScript 类型检查
+   - Git Commit 规范
 
-[MIT](https://opensource.org/license/mit/)
+## 项目结构
 
-Copyright (c) 2024 菲鸽
+```
+src/
+├── components/        # 公共组件
+├── pages/            # 页面文件
+├── pages-sub/        # 子页面
+├── store/            # 状态管理
+├── service/          # API 服务
+├── utils/            # 工具函数
+├── hooks/            # 组合式函数
+├── types/            # 类型定义
+└── static/           # 静态资源
+```
 
-## 捐赠
+## 开发计划
 
-<p align='center'>
-<img alt="special sponsor appwrite" src="./screenshots/pay-1.png" height="330" style="display:inline-block; height:330px;">
-<img alt="special sponsor appwrite" src="./screenshots/pay-2.png" height="330" style="display:inline-block; height:330px; margin-left:10px;">
-</p>
+1. 第一阶段：基础功能开发
+
+   - 首页展示
+   - 商品模块
+   - 购物车
+   - 订单系统
+   - 用户中心
+
+2. 第二阶段：营销功能开发
+
+   - 优惠券系统
+   - 积分系统
+   - 拼团功能
+   - 秒杀功能
+
+3. 第三阶段：高级功能开发
+
+   - 会员系统
+   - 分销系统
+   - 商户管理
+   - 数据统计
+
+4. 第四阶段：系统优化
+   - 性能优化
+   - 体验优化
+   - 安全加固
+   - 测试完善
+
+## 运行环境
+
+- Node.js >= 18
+- pnpm >= 7.30
+- 开发工具：VSCode/WebStorm
+
+## 安装和运行
+
+```bash
+# 安装依赖
+pnpm install
+
+# 开发环境运行
+pnpm dev:h5         # H5
+pnpm dev:mp-weixin  # 微信小程序
+pnpm dev:app        # App
+
+# 打包
+pnpm build:h5         # H5
+pnpm build:mp-weixin  # 微信小程序
+pnpm build:app        # App
+```

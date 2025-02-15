@@ -44,9 +44,9 @@
     "refresherrefresh",
     "scrolltolower",
     "tabbar",
-    "unibest",
     "uvui",
-    "WechatMiniprogram"
+    "WechatMiniprogram",
+    "HuinongH5"
   ],
   "typescript.tsdk": "node_modules\\typescript\\lib",
   // 控制相关文件嵌套展示

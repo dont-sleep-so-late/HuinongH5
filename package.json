@@ -2,13 +2,13 @@
   "name": "huinongh5",
   "type": "commonjs",
   "version": "2.5.4",
-  "description": "unibest - 最好的 uniapp 开发模板",
+  "description": "惠农平台 - 最好的农产品电商平台",
   "author": {
-    "name": "feige996",
-    "zhName": "菲鸽",
-    "email": "1020103647@qq.com",
-    "github": "https://github.com/feige996",
-    "gitee": "https://gitee.com/feige996"
+    "name": "dont-sleep-so-late",
+    "zhName": "你别睡这么晚",
+    "email": "1921909953@qq.com",
+    "github": "https://github.com/dont-sleep-so-late",
+    "gitee": "https://gitee.com/dont-sleep-so-late"
   },
   "license": "MIT",
   "repository": "https://github.com/feige996/unibest",
@@ -17,7 +17,7 @@
   "bugs": {
     "url": "https://github.com/feige996/unibest/issues"
   },
-  "homepage": "https://feige996.github.io/unibest/",
+  "homepage": "https://dont-sleep-so-late.github.io",
   "engines": {
     "node": ">=18",
     "pnpm": ">=7.30"
@@ -72,15 +72,9 @@
     "cz": "czg"
   },
   "lint-staged": {
-    "**/*.{html,vue,ts,cjs,json,md}": [
-      "prettier --write"
-    ],
-    "**/*.{vue,js,ts,jsx,tsx}": [
-      "eslint --cache --fix"
-    ],
-    "**/*.{vue,css,scss,html}": [
-      "stylelint --fix"
-    ]
+    "*.{html,vue,ts,cjs,json,md}": "prettier --write",
+    "*.{vue,js,ts,jsx,tsx}": "eslint --cache --fix",
+    "*.{vue,css,scss,html}": "stylelint --fix"
   },
   "resolutions": {
     "bin-wrapper": "npm:bin-wrapper-china"
@@ -143,8 +137,8 @@
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-vue": "^9.32.0",
-    "husky": "^8.0.3",
-    "lint-staged": "^15.2.10",
+    "husky": "8.0.0",
+    "lint-staged": "13.0.0",
     "postcss": "^8.4.49",
     "postcss-html": "^1.7.0",
     "postcss-scss": "^4.0.9",
