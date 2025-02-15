@@ -7,7 +7,7 @@
         placeholder="搜索商品"
         prefix-icon="search"
         clearable
-        @click-input="handleSearch"
+        @input="handleSearch"
       />
     </view>
 
@@ -80,11 +80,17 @@
         </view>
       </scroll-view>
     </view>
+
+    <!-- 底部安全区域 -->
+    <view class="safe-area-bottom"></view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useRouter } from '@/hooks/router'
+
+const router = useRouter()
 
 // 搜索关键词
 const searchKeyword = ref('')
@@ -237,9 +243,9 @@ const handleSearch = () => {
 
 // 跳转到商品详情
 const navigateToDetail = (item: any) => {
-  uni.navigateTo({
-    url: '/pages-sub/goods/detail?id=' + item.id + '&name=' + encodeURIComponent(item.name),
-  })
+  router.navigate(
+    '/pages-sub/goods/detail?id=' + item.id + '&name=' + encodeURIComponent(item.name),
+  )
 }
 
 // 加载更多
@@ -263,6 +269,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  padding-bottom: env(safe-area-inset-bottom);
   background-color: #f8f8f8;
 }
 
@@ -437,5 +444,9 @@ onMounted(() => {
     font-size: 28rpx;
     color: #999;
   }
+}
+
+.safe-area-bottom {
+  height: env(safe-area-inset-bottom);
 }
 </style>

@@ -70,7 +70,31 @@
       "type": "page"
     },
     {
+      "path": "pages/forgot-password/index",
+      "type": "page"
+    },
+    {
+      "path": "pages/login/index",
+      "type": "page"
+    },
+    {
       "path": "pages/message/index",
+      "type": "page"
+    },
+    {
+      "path": "pages/publish/index",
+      "type": "page"
+    },
+    {
+      "path": "pages/register/index",
+      "type": "page"
+    },
+    {
+      "path": "pages/role/index",
+      "type": "page"
+    },
+    {
+      "path": "pages/shelf/index",
       "type": "page"
     },
     {

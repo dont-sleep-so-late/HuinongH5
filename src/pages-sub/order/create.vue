@@ -1,414 +1,490 @@
 <template>
   <view class="order-create">
+    <!-- 导航栏 -->
+    <view class="nav-bar">
+      <text class="back" @click="router.back()">
+        <text class="iconfont icon-arrow-left"></text>
+      </text>
+      <text class="title">确认订单</text>
+    </view>
+
     <!-- 收货地址 -->
-    <view class="address-section" @tap="chooseAddress">
-      <view class="address-content" v-if="address.name">
-        <view class="info">
+    <view class="address-card" @click="selectAddress">
+      <view v-if="address" class="address-info">
+        <view class="user-info">
           <text class="name">{{ address.name }}</text>
           <text class="phone">{{ address.phone }}</text>
         </view>
-        <view class="detail">
-          {{ address.province }}{{ address.city }}{{ address.district }}{{ address.detail }}
+        <view class="address">
+          {{ address.province }}{{ address.city }}{{ address.district }}{{ address.address }}
         </view>
       </view>
-      <view class="no-address" v-else>
+      <view v-else class="no-address">
+        <text class="iconfont icon-location"></text>
         <text>请选择收货地址</text>
       </view>
-      <text class="icon">></text>
+      <text class="iconfont icon-arrow-right"></text>
     </view>
 
     <!-- 商品列表 -->
-    <view class="goods-section">
-      <view class="goods-item" v-for="(item, index) in orderInfo.goods" :key="index">
-        <image :src="item.image" mode="aspectFill" />
-        <view class="goods-info">
-          <view class="name">{{ item.name }}</view>
-          <view class="spec">{{ item.spec }}</view>
-          <view class="price-wrap">
-            <text class="price">¥{{ item.price }}</text>
-            <text class="quantity">x{{ item.quantity }}</text>
+    <view class="goods-list">
+      <view v-for="shop in shopList" :key="shop.id" class="shop-group">
+        <!-- 店铺信息 -->
+        <view class="shop-header">
+          <image :src="shop.avatar" mode="aspectFill" class="shop-avatar" />
+          <text class="shop-name">{{ shop.name }}</text>
+        </view>
+
+        <!-- 商品列表 -->
+        <view class="goods-items">
+          <view v-for="goods in shop.goodsList" :key="goods.id" class="goods-item">
+            <image :src="goods.image" mode="aspectFill" class="goods-image" />
+            <view class="goods-info">
+              <text class="goods-name">{{ goods.name }}</text>
+              <text class="goods-spec">{{ goods.spec }}</text>
+              <view class="goods-bottom">
+                <text class="goods-price">¥{{ goods.price }}</text>
+                <text class="goods-quantity">x{{ goods.quantity }}</text>
+              </view>
+            </view>
           </view>
         </view>
-      </view>
-    </view>
 
-    <!-- 优惠券 -->
-    <view class="coupon-section" @tap="chooseCoupon">
-      <text>优惠券</text>
-      <view class="right">
-        <text class="value" v-if="selectedCoupon">-¥{{ selectedCoupon.value }}</text>
-        <text class="placeholder" v-else>{{ availableCoupons.length }}张可用</text>
-        <text class="icon">></text>
-      </view>
-    </view>
+        <!-- 店铺优惠券 -->
+        <view class="shop-coupon" @click="selectCoupon(shop)">
+          <text class="label">优惠券</text>
+          <view class="coupon-info">
+            <text v-if="shop.selectedCoupon" class="selected">
+              已选择{{ shop.selectedCoupon.name }}
+            </text>
+            <text v-else class="none">暂无可用</text>
+            <text class="iconfont icon-arrow-right"></text>
+          </view>
+        </view>
 
-    <!-- 配送方式 -->
-    <view class="delivery-section">
-      <text>配送方式</text>
-      <view class="right">
-        <text>快递配送</text>
-        <text class="delivery-fee">¥{{ orderInfo.deliveryFee }}</text>
-      </view>
-    </view>
+        <!-- 配送方式 -->
+        <view class="delivery">
+          <text class="label">配送方式</text>
+          <view class="delivery-info">
+            <text class="method">快递配送</text>
+            <text class="fee">¥{{ shop.deliveryFee }}</text>
+          </view>
+        </view>
 
-    <!-- 订单备注 -->
-    <view class="remark-section">
-      <text>订单备注</text>
-      <input
-        type="text"
-        v-model="remark"
-        placeholder="选填，请先和商家协商一致"
-        placeholder-class="placeholder"
-      />
-    </view>
-
-    <!-- 金额明细 -->
-    <view class="amount-section">
-      <view class="amount-item">
-        <text>商品金额</text>
-        <text>¥{{ orderInfo.goodsAmount }}</text>
-      </view>
-      <view class="amount-item">
-        <text>运费</text>
-        <text>¥{{ orderInfo.deliveryFee }}</text>
-      </view>
-      <view class="amount-item" v-if="selectedCoupon">
-        <text>优惠券</text>
-        <text class="minus">-¥{{ selectedCoupon.value }}</text>
+        <!-- 店铺小计 -->
+        <view class="shop-total">
+          <text>共{{ shop.totalQuantity }}件</text>
+          <text>小计：</text>
+          <text class="price">¥{{ shop.totalPrice }}</text>
+        </view>
       </view>
     </view>
 
     <!-- 支付方式 -->
-    <view class="payment-section">
-      <view class="section-title">支付方式</view>
-      <view class="payment-list">
+    <view class="payment-method">
+      <text class="label">支付方式</text>
+      <view class="method-list">
         <view
-          class="payment-item"
-          v-for="(item, index) in paymentMethods"
-          :key="index"
-          :class="{ active: selectedPayment === index }"
-          @tap="selectPayment(index)"
+          v-for="method in paymentMethods"
+          :key="method.id"
+          class="method-item"
+          :class="{ active: selectedPayment === method.id }"
+          @click="selectedPayment = method.id"
         >
-          <image :src="item.icon" mode="aspectFit" />
-          <text>{{ item.name }}</text>
-          <text class="check">✓</text>
+          <text class="iconfont" :class="method.icon"></text>
+          <text class="name">{{ method.name }}</text>
+          <text class="selected" v-if="selectedPayment === method.id">✓</text>
         </view>
       </view>
+    </view>
+
+    <!-- 订单备注 -->
+    <view class="remark">
+      <text class="label">订单备注</text>
+      <input
+        type="text"
+        v-model="remark"
+        placeholder="选填，填写订单备注信息"
+        placeholder-class="placeholder"
+      />
     </view>
 
     <!-- 底部结算栏 -->
-    <view class="submit-bar">
-      <view class="total">
-        <text>合计：</text>
-        <text class="price">¥{{ totalAmount }}</text>
+    <view class="bottom-bar">
+      <view class="price-info">
+        <text>实付款：</text>
+        <text class="total-price">¥{{ totalPrice }}</text>
       </view>
-      <button class="submit-btn" @tap="submitOrder">提交订单</button>
+      <view class="submit-btn" @click="submitOrder">提交订单</view>
     </view>
 
-    <!-- 优惠券弹窗 -->
-    <wd-popup v-model="showCoupon" position="bottom">
-      <view class="coupon-popup">
-        <view class="popup-header">
-          <text>优惠券</text>
-          <text class="close" @tap="closeCoupon">×</text>
-        </view>
-        <scroll-view scroll-y class="coupon-list">
-          <view
-            class="coupon-item"
-            v-for="(item, index) in availableCoupons"
-            :key="index"
-            :class="{ active: selectedCouponIndex === index }"
-            @tap="selectCoupon(index)"
-          >
-            <view class="left">
-              <text class="value">¥{{ item.value }}</text>
-              <text class="condition">满{{ item.condition }}可用</text>
-            </view>
-            <view class="right">
-              <text class="name">{{ item.name }}</text>
-              <text class="time">{{ item.validTime }}</text>
-            </view>
-            <text class="check">✓</text>
-          </view>
-        </scroll-view>
-        <view class="popup-footer">
-          <button class="confirm-btn" @tap="confirmCoupon">确定</button>
-        </view>
-      </view>
-    </wd-popup>
+    <!-- 底部安全区域 -->
+    <view class="safe-area-bottom"></view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from '@/hooks/router'
+import { showToast } from '@/utils/toast'
+
+const router = useRouter()
 
 // 收货地址
-const address = ref({
-  name: '张三',
-  phone: '13800138000',
-  province: '广东省',
-  city: '深圳市',
-  district: '南山区',
-  detail: '科技园南路XX号',
-})
+const address = ref<any>(null)
 
-// 订单信息
-const orderInfo = ref({
-  goods: [
-    {
-      id: 1,
-      name: '新鲜水蜜桃',
-      spec: '2.5kg装',
-      price: 29.9,
-      quantity: 2,
-      image: '/static/goods/peach.jpg',
-    },
-  ],
-  goodsAmount: 59.8,
-  deliveryFee: 8,
-})
+// 店铺列表
+interface GoodsItem {
+  id: number
+  name: string
+  spec: string
+  price: number
+  quantity: number
+  image: string
+}
 
-// 优惠券
-const showCoupon = ref(false)
-const selectedCouponIndex = ref(-1)
-const availableCoupons = ref([
+interface ShopItem {
+  id: number
+  name: string
+  avatar: string
+  deliveryFee: number
+  selectedCoupon: any
+  goodsList: GoodsItem[]
+  totalQuantity?: number
+  totalPrice?: string
+}
+
+const shopList = ref<ShopItem[]>([
   {
     id: 1,
-    name: '新人专享券',
-    value: 10,
-    condition: 50,
-    validTime: '2024-12-31到期',
-  },
-  {
-    id: 2,
-    name: '满减优惠券',
-    value: 20,
-    condition: 100,
-    validTime: '2024-12-31到期',
+    name: '生鲜专卖店',
+    avatar: '/static/shops/shop1.png',
+    deliveryFee: 8,
+    selectedCoupon: null,
+    goodsList: [
+      {
+        id: 1,
+        name: '新鲜水果玉米',
+        spec: '5斤装',
+        price: 29.9,
+        quantity: 1,
+        image: '/static/goods/corn.jpg',
+      },
+      {
+        id: 2,
+        name: '有机胡萝卜',
+        spec: '2.5kg',
+        price: 15.8,
+        quantity: 2,
+        image: '/static/goods/carrot.jpg',
+      },
+    ],
   },
 ])
 
+// 计算店铺商品总数和总价
+shopList.value.forEach((shop) => {
+  shop.totalQuantity = shop.goodsList.reduce((sum, goods) => sum + goods.quantity, 0)
+  shop.totalPrice = shop.goodsList
+    .reduce((sum, goods) => sum + goods.price * goods.quantity, 0)
+    .toFixed(2)
+})
+
 // 支付方式
-const paymentMethods = ref([
-  {
-    name: '微信支付',
-    icon: '/static/payment/wechat.png',
-  },
-  {
-    name: '支付宝',
-    icon: '/static/payment/alipay.png',
-  },
-])
-const selectedPayment = ref(0)
+const paymentMethods = [
+  { id: 1, name: '微信支付', icon: 'icon-wechat' },
+  { id: 2, name: '支付宝', icon: 'icon-alipay' },
+]
+const selectedPayment = ref(1)
 
 // 订单备注
 const remark = ref('')
 
-// 选中的优惠券
-const selectedCoupon = computed(() => {
-  if (selectedCouponIndex.value === -1) return null
-  return availableCoupons.value[selectedCouponIndex.value]
+// 计算总价
+const totalPrice = computed(() => {
+  return shopList.value
+    .reduce((sum, shop) => {
+      const subtotal = parseFloat(shop.totalPrice)
+      const discount = shop.selectedCoupon ? shop.selectedCoupon.amount : 0
+      return sum + subtotal + shop.deliveryFee - discount
+    }, 0)
+    .toFixed(2)
 })
 
-// 总金额
-const totalAmount = computed(() => {
-  let total = orderInfo.value.goodsAmount + orderInfo.value.deliveryFee
-  if (selectedCoupon.value) {
-    total -= selectedCoupon.value.value
-  }
-  return total.toFixed(2)
+// 监听地址选择
+onMounted(() => {
+  uni.$on('addressSelected', (selectedAddress: any) => {
+    address.value = selectedAddress
+  })
 })
 
 // 选择收货地址
-const chooseAddress = () => {
-  uni.navigateTo({
-    url: '/pages-sub/user/address',
-  })
+const selectAddress = () => {
+  router.navigate('/pages-sub/user/address')
 }
 
 // 选择优惠券
-const chooseCoupon = () => {
-  showCoupon.value = true
-}
-
-// 关闭优惠券弹窗
-const closeCoupon = () => {
-  showCoupon.value = false
-}
-
-// 选择优惠券
-const selectCoupon = (index: number) => {
-  selectedCouponIndex.value = index
-}
-
-// 确认优惠券选择
-const confirmCoupon = () => {
-  closeCoupon()
-}
-
-// 选择支付方式
-const selectPayment = (index: number) => {
-  selectedPayment.value = index
+const selectCoupon = (shop: any) => {
+  router.navigate(`/pages-sub/shop/coupons?id=${shop.id}`)
 }
 
 // 提交订单
-const submitOrder = () => {
-  if (!address.value.name) {
-    uni.showToast({
-      title: '请选择收货地址',
-      icon: 'none',
-    })
+const submitOrder = async () => {
+  if (!address.value) {
+    showToast('请选择收货地址')
     return
   }
 
-  // 模拟订单提交
-  uni.showLoading({
-    title: '正在创建订单',
-  })
+  if (!selectedPayment.value) {
+    showToast('请选择支付方式')
+    return
+  }
 
-  setTimeout(() => {
-    uni.hideLoading()
-    uni.showModal({
-      title: '提示',
-      content: '订单创建成功，是否立即支付？',
-      success: (res) => {
-        if (res.confirm) {
-          // 跳转到支付页面
-          uni.navigateTo({
-            url: '/pages-sub/order/payment',
-          })
-        } else {
-          // 跳转到订单列表
-          uni.redirectTo({
-            url: '/pages-sub/order/list',
-          })
-        }
-      },
-    })
-  }, 1500)
+  try {
+    // TODO: 调用创建订单接口
+    showToast('订单提交成功', { icon: 'success' })
+    setTimeout(() => {
+      router.navigate('/pages/order/list')
+    }, 1500)
+  } catch (error) {
+    showToast('订单提交失败')
+  }
 }
 </script>
 
 <style lang="scss">
 .order-create {
   min-height: 100vh;
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
   background-color: #f8f8f8;
+}
 
-  .placeholder {
-    font-size: 28rpx;
-    color: #999;
-  }
+.nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  height: 88rpx;
+  padding: 0 32rpx;
+  background: linear-gradient(to bottom, #fff, rgba(255, 255, 255, 0.98));
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
 
-  .price {
-    font-size: 32rpx;
-    font-weight: bold;
-    color: #f56c6c;
-  }
+  .back {
+    padding: 20rpx;
+    margin: -20rpx;
+    margin-right: 0;
 
-  .check {
-    width: 40rpx;
-    height: 40rpx;
-    border: 2rpx solid #ddd;
-    border-radius: 50%;
-
-    &.active {
-      background-color: #018d71;
-      border-color: #018d71;
+    .iconfont {
+      font-size: 36rpx;
+      color: #333;
     }
   }
 
-  .section {
-    margin-bottom: 20rpx;
-    background-color: #fff;
-    border-radius: 12rpx;
+  .title {
+    flex: 1;
+    margin-left: 32rpx;
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #333;
   }
+}
 
-  .address-section {
-    position: relative;
-    padding: 30rpx;
-    margin-bottom: 20rpx;
-    background-color: #fff;
+.address-card {
+  display: flex;
+  align-items: center;
+  padding: 30rpx;
+  margin: 20rpx;
+  background-color: #fff;
+  border-radius: 16rpx;
 
-    .address-content {
-      padding-right: 40rpx;
+  .address-info {
+    flex: 1;
+    margin-right: 20rpx;
 
-      .info {
-        margin-bottom: 10rpx;
+    .user-info {
+      margin-bottom: 16rpx;
 
-        .name {
-          margin-right: 20rpx;
-          font-size: 32rpx;
-          color: #333;
-        }
-
-        .phone {
-          font-size: 28rpx;
-          color: #666;
-        }
+      .name {
+        margin-right: 20rpx;
+        font-size: 32rpx;
+        font-weight: bold;
+        color: #333;
       }
 
-      .detail {
+      .phone {
         font-size: 28rpx;
-        line-height: 1.4;
         color: #666;
       }
     }
 
-    .no-address {
-      padding: 30rpx 0;
+    .address {
       font-size: 28rpx;
-      color: #999;
-      text-align: center;
-    }
-
-    .icon {
-      position: absolute;
-      top: 50%;
-      right: 30rpx;
-      font-size: 32rpx;
-      color: #999;
-      transform: translateY(-50%);
+      line-height: 1.5;
+      color: #333;
     }
   }
 
-  .goods-section {
-    padding: 20rpx;
+  .no-address {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    margin-right: 20rpx;
+
+    .iconfont {
+      margin-right: 8rpx;
+      font-size: 32rpx;
+      color: #999;
+    }
+
+    text {
+      font-size: 28rpx;
+      color: #999;
+    }
+  }
+
+  .iconfont {
+    font-size: 32rpx;
+    color: #999;
+  }
+}
+
+.goods-list {
+  margin: 20rpx;
+
+  .shop-group {
     margin-bottom: 20rpx;
+    overflow: hidden;
     background-color: #fff;
+    border-radius: 16rpx;
 
-    .goods-item {
+    .shop-header {
       display: flex;
-      padding: 20rpx 0;
+      align-items: center;
+      padding: 20rpx;
+      border-bottom: 1rpx solid #f5f5f5;
 
-      image {
-        width: 160rpx;
-        height: 160rpx;
-        margin-right: 20rpx;
+      .shop-avatar {
+        width: 48rpx;
+        height: 48rpx;
+        margin-right: 16rpx;
         border-radius: 8rpx;
       }
 
-      .goods-info {
-        flex: 1;
+      .shop-name {
+        font-size: 28rpx;
+        font-weight: bold;
+        color: #333;
+      }
+    }
 
-        .name {
-          margin-bottom: 10rpx;
-          font-size: 28rpx;
-          color: #333;
+    .goods-items {
+      .goods-item {
+        display: flex;
+        padding: 20rpx;
+        border-bottom: 1rpx solid #f5f5f5;
+
+        .goods-image {
+          width: 160rpx;
+          height: 160rpx;
+          margin-right: 20rpx;
+          border-radius: 12rpx;
         }
 
-        .spec {
-          margin-bottom: 20rpx;
-          font-size: 24rpx;
+        .goods-info {
+          display: flex;
+          flex: 1;
+          flex-direction: column;
+
+          .goods-name {
+            margin-bottom: 12rpx;
+            font-size: 28rpx;
+            font-weight: bold;
+            color: #333;
+          }
+
+          .goods-spec {
+            margin-bottom: 20rpx;
+            font-size: 24rpx;
+            color: #999;
+          }
+
+          .goods-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            .goods-price {
+              font-size: 32rpx;
+              font-weight: bold;
+              color: #ff6b6b;
+            }
+
+            .goods-quantity {
+              font-size: 28rpx;
+              color: #999;
+            }
+          }
+        }
+      }
+    }
+
+    .shop-coupon,
+    .delivery {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20rpx;
+      border-bottom: 1rpx solid #f5f5f5;
+
+      .label {
+        font-size: 28rpx;
+        color: #333;
+      }
+
+      .coupon-info,
+      .delivery-info {
+        display: flex;
+        align-items: center;
+
+        text {
+          font-size: 28rpx;
+          color: #666;
+
+          &.selected {
+            color: #ff6b6b;
+          }
+
+          &.none {
+            color: #999;
+          }
+        }
+
+        .iconfont {
+          margin-left: 8rpx;
+          font-size: 32rpx;
           color: #999;
         }
 
-        .price-wrap {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+        .fee {
+          color: #ff6b6b;
         }
+      }
+    }
 
-        .price {
+    .shop-total {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 20rpx;
+
+      text {
+        margin-left: 20rpx;
+        font-size: 28rpx;
+        color: #666;
+
+        &.price {
           font-size: 32rpx;
           font-weight: bold;
           color: #ff6b6b;
@@ -416,268 +492,128 @@ const submitOrder = () => {
       }
     }
   }
+}
 
-  .coupon-section,
-  .delivery-section {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 30rpx;
+.payment-method {
+  padding: 20rpx;
+  margin: 20rpx;
+  background-color: #fff;
+  border-radius: 16rpx;
+
+  .label {
     margin-bottom: 20rpx;
     font-size: 28rpx;
-    background-color: #fff;
+    color: #333;
+  }
 
-    .right {
-      flex: 1;
-      color: #ff6b6b;
-      text-align: right;
+  .method-list {
+    .method-item {
+      display: flex;
+      align-items: center;
+      padding: 20rpx 0;
+      border-bottom: 1rpx solid #f5f5f5;
 
-      .value {
-        margin-right: 10rpx;
-        color: #f04c41;
+      &:last-child {
+        border-bottom: none;
       }
 
-      .placeholder {
-        margin-right: 10rpx;
-        color: #999;
+      &.active {
+        .name {
+          color: #018d71;
+        }
       }
 
-      .icon {
-        color: #999;
+      .iconfont {
+        margin-right: 16rpx;
+        font-size: 40rpx;
+
+        &.icon-wechat {
+          color: #07c160;
+        }
+
+        &.icon-alipay {
+          color: #1677ff;
+        }
       }
 
-      .delivery-fee {
-        margin-left: 20rpx;
+      .name {
+        flex: 1;
+        font-size: 28rpx;
+        color: #333;
+      }
+
+      .selected {
+        font-size: 32rpx;
+        color: #018d71;
       }
     }
   }
+}
 
-  .remark-section {
-    display: flex;
-    align-items: center;
-    padding: 30rpx;
+.remark {
+  padding: 20rpx;
+  margin: 20rpx;
+  background-color: #fff;
+  border-radius: 16rpx;
+
+  .label {
     margin-bottom: 20rpx;
     font-size: 28rpx;
-    background-color: #fff;
+    color: #333;
+  }
 
-    text {
-      margin-right: 20rpx;
-    }
+  input {
+    width: 100%;
+    font-size: 28rpx;
+    color: #333;
 
-    input {
-      flex: 1;
-      font-size: 28rpx;
-    }
-
-    .placeholder {
+    &.placeholder {
       color: #999;
     }
   }
+}
 
-  .amount-section {
-    padding: 30rpx;
-    margin-bottom: 20rpx;
-    background-color: #fff;
+.bottom-bar {
+  position: fixed;
+  right: 0;
+  bottom: env(safe-area-inset-bottom);
+  left: 0;
+  display: flex;
+  align-items: center;
+  height: 100rpx;
+  padding: 0 32rpx;
+  background: linear-gradient(to bottom, #fff, rgba(255, 255, 255, 0.98));
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
 
-    .amount-item {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 20rpx;
-      font-size: 28rpx;
-      color: #666;
+  .price-info {
+    flex: 1;
 
-      &:last-child {
-        margin-bottom: 0;
-      }
-
-      .minus {
-        color: #f04c41;
-      }
-    }
-  }
-
-  .payment-section {
-    padding: 30rpx;
-    margin-bottom: 20rpx;
-    background-color: #fff;
-
-    .section-title {
-      margin-bottom: 20rpx;
+    text {
       font-size: 28rpx;
       color: #333;
     }
 
-    .payment-list {
-      .payment-item {
-        position: relative;
-        display: flex;
-        align-items: center;
-        padding: 20rpx 0;
-
-        image {
-          width: 48rpx;
-          height: 48rpx;
-          margin-right: 20rpx;
-        }
-
-        text {
-          font-size: 28rpx;
-          color: #333;
-        }
-
-        .check {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 40rpx;
-          height: 40rpx;
-          color: transparent;
-          border: 2rpx solid #ddd;
-          border-radius: 50%;
-        }
-
-        &.active {
-          background-color: rgba(1, 141, 113, 0.1);
-
-          .check {
-            opacity: 1;
-          }
-        }
-      }
+    .total-price {
+      font-size: 36rpx;
+      font-weight: bold;
+      color: #ff6b6b;
     }
   }
 
-  .submit-bar {
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20rpx 30rpx;
-    background-color: #fff;
-    box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
-
-    .total {
-      font-size: 28rpx;
-
-      .price {
-        font-size: 36rpx;
-        font-weight: bold;
-        color: #f04c41;
-      }
-    }
-
-    .submit-btn {
-      width: 240rpx;
-      height: 80rpx;
-      font-size: 28rpx;
-      line-height: 80rpx;
-      color: #fff;
-      text-align: center;
-      background-color: #018d71;
-      border-radius: 40rpx;
-    }
+  .submit-btn {
+    width: 240rpx;
+    height: 80rpx;
+    font-size: 32rpx;
+    line-height: 80rpx;
+    color: #fff;
+    text-align: center;
+    background-color: #018d71;
+    border-radius: 40rpx;
   }
+}
 
-  .coupon-popup {
-    .popup-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 30rpx;
-      font-size: 32rpx;
-      border-bottom: 2rpx solid #f5f5f5;
-
-      .close {
-        font-size: 48rpx;
-        color: #999;
-      }
-    }
-
-    .coupon-list {
-      max-height: 60vh;
-      padding: 30rpx;
-
-      .coupon-item {
-        position: relative;
-        display: flex;
-        padding: 20rpx;
-        margin-bottom: 20rpx;
-        background-color: #f8f8f8;
-        border-radius: 12rpx;
-
-        .left {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          width: 200rpx;
-          padding-right: 20rpx;
-          border-right: 2rpx dashed #ddd;
-
-          .value {
-            font-size: 40rpx;
-            font-weight: bold;
-            color: #f04c41;
-          }
-
-          .condition {
-            font-size: 24rpx;
-            color: #999;
-          }
-        }
-
-        .right {
-          flex: 1;
-          padding-left: 20rpx;
-
-          .name {
-            margin-bottom: 10rpx;
-            font-size: 28rpx;
-            color: #333;
-          }
-
-          .time {
-            font-size: 24rpx;
-            color: #999;
-          }
-        }
-
-        .check {
-          position: absolute;
-          top: 50%;
-          right: 20rpx;
-          color: #018d71;
-          opacity: 0;
-          transform: translateY(-50%);
-        }
-
-        &.active {
-          background-color: rgba(1, 141, 113, 0.1);
-
-          .check {
-            opacity: 1;
-          }
-        }
-      }
-    }
-
-    .popup-footer {
-      padding: 20rpx;
-      border-top: 2rpx solid #f5f5f5;
-
-      .confirm-btn {
-        width: 100%;
-        height: 80rpx;
-        font-size: 28rpx;
-        line-height: 80rpx;
-        color: #fff;
-        text-align: center;
-        background-color: #018d71;
-        border-radius: 40rpx;
-      }
-    }
-  }
+.safe-area-bottom {
+  height: env(safe-area-inset-bottom);
 }
 </style>

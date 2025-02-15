@@ -1,266 +1,186 @@
 <template>
   <view class="container">
-    <!-- 商品图片轮播 -->
+    <!-- 商品轮播图 -->
     <swiper
-      class="goods-swiper"
+      class="swiper"
       :indicator-dots="true"
       :autoplay="true"
       :interval="3000"
       :duration="1000"
     >
-      <swiper-item v-for="(item, index) in goodsDetail.images" :key="index">
-        <image :src="item" mode="aspectFill" class="goods-image" />
+      <swiper-item v-for="(image, index) in goodsImages" :key="index">
+        <image :src="image" mode="aspectFill" class="swiper-image" />
       </swiper-item>
     </swiper>
 
-    <!-- 商品基本信息 -->
+    <!-- 商品信息 -->
     <view class="goods-info">
       <view class="price-section">
-        <text class="price">¥{{ goodsDetail.price }}</text>
-        <text class="market-price">市场价：¥{{ goodsDetail.marketPrice }}</text>
+        <text class="price">¥{{ goodsInfo.price }}</text>
+        <text class="original-price" v-if="goodsInfo.originalPrice">
+          ¥{{ goodsInfo.originalPrice }}
+        </text>
       </view>
-      <text class="title">{{ goodsDetail.name }}</text>
-      <view class="sales-info">
-        <text class="sales">已售 {{ goodsDetail.sales }} 件</text>
-        <text class="stock">库存 {{ goodsDetail.stock }} 件</text>
+      <text class="title">{{ goodsInfo.name }}</text>
+      <view class="tags" v-if="goodsInfo.tags && goodsInfo.tags.length">
+        <text v-for="(tag, index) in goodsInfo.tags" :key="index" class="tag">{{ tag }}</text>
       </view>
+      <text class="desc">{{ goodsInfo.description }}</text>
     </view>
 
-    <!-- 农场信息 -->
-    <view class="farm-info">
-      <view class="farm-header">
-        <image :src="goodsDetail.farmInfo.logo" mode="aspectFill" class="farm-logo" />
-        <view class="farm-detail">
-          <text class="farm-name">{{ goodsDetail.farmInfo.name }}</text>
-          <text class="farm-address">{{ goodsDetail.farmInfo.address }}</text>
+    <!-- 规格选择 -->
+    <view class="spec-section">
+      <view class="section-header">
+        <text class="title">规格</text>
+        <text class="selected-spec">已选：{{ selectedSpec || '请选择' }}</text>
+      </view>
+      <view class="spec-list">
+        <view
+          v-for="spec in specifications"
+          :key="spec.value"
+          class="spec-item"
+          :class="{ active: selectedSpec === spec.value }"
+          @click="selectSpec(spec.value)"
+        >
+          {{ spec.label }}
         </view>
-        <wd-button size="small" @click="navigateToFarm">查看农场</wd-button>
       </view>
     </view>
 
     <!-- 商品详情 -->
     <view class="detail-section">
-      <view class="section-title">
-        <text>商品详情</text>
+      <view class="section-header">
+        <text class="title">商品详情</text>
       </view>
-      <view class="harvest-info">
-        <view class="info-item">
-          <text class="label">预计成熟期：</text>
-          <text class="value">{{ goodsDetail.harvestTime }}</text>
-        </view>
-        <view class="info-item">
-          <text class="label">种植方式：</text>
-          <text class="value">{{ goodsDetail.plantingMethod }}</text>
-        </view>
-        <view class="info-item">
-          <text class="label">施肥方案：</text>
-          <text class="value">{{ goodsDetail.fertilizationPlan }}</text>
-        </view>
-        <view class="info-item">
-          <text class="label">农药使用：</text>
-          <text class="value">{{ goodsDetail.pesticideUsage }}</text>
-        </view>
-      </view>
-      <view class="detail-images">
-        <image
-          v-for="(img, index) in goodsDetail.detailImages"
-          :key="index"
-          :src="img"
-          mode="widthFix"
-          class="detail-image"
-        />
-      </view>
+      <rich-text :nodes="goodsInfo.detail"></rich-text>
     </view>
 
     <!-- 底部操作栏 -->
     <view class="action-bar">
       <view class="left-actions">
-        <view class="action-item" @click="navigateToCart">
+        <view class="action-item" @click="goToCart">
           <wd-icon name="cart" size="24" />
           <text>购物车</text>
-          <view class="cart-badge" v-if="cartCount > 0">{{ cartCount }}</view>
-        </view>
-        <view class="action-item" @click="toggleFavorite">
-          <wd-icon :name="isFavorite ? 'star-fill' : 'star'" size="24" />
-          <text>收藏</text>
         </view>
       </view>
       <view class="right-actions">
-        <wd-button type="warning" size="large" @click="addToCart">加入购物车</wd-button>
-        <wd-button type="primary" size="large" @click="buyNow">立即购买</wd-button>
+        <wd-button type="warning" @click="addToCart">加入购物车</wd-button>
+        <wd-button type="primary" @click="buyNow">立即购买</wd-button>
       </view>
     </view>
 
-    <!-- 规格选择弹窗 -->
-    <wd-popup v-model="showSkuPopup" position="bottom">
-      <view class="sku-popup">
-        <view class="sku-header">
-          <image :src="goodsDetail.images[0]" mode="aspectFill" class="sku-image" />
-          <view class="sku-info">
-            <text class="sku-price">¥{{ goodsDetail.price }}</text>
-            <text class="sku-stock">库存：{{ goodsDetail.stock }}件</text>
-            <text class="sku-selected">已选：{{ selectedSku }}</text>
-          </view>
-          <wd-icon name="close" size="20" @click="showSkuPopup = false" />
-        </view>
-        <view class="sku-content">
-          <view class="sku-group">
-            <text class="group-title">规格</text>
-            <view class="sku-options">
-              <text
-                v-for="item in goodsDetail.specifications"
-                :key="item"
-                :class="['sku-option', selectedSpec === item ? 'selected' : '']"
-                @click="selectedSpec = item"
-              >
-                {{ item }}
-              </text>
-            </view>
-          </view>
-          <view class="quantity-section">
-            <text class="group-title">数量</text>
-            <wd-input-number v-model="quantity" :min="1" :max="goodsDetail.stock" />
-          </view>
-        </view>
-        <view class="sku-footer">
-          <wd-button type="primary" block @click="confirmSku">确定</wd-button>
-        </view>
-      </view>
-    </wd-popup>
+    <!-- 底部安全区域 -->
+    <view class="safe-area-bottom"></view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
+import { showToast } from '@/utils/toast'
 
-interface FarmInfo {
-  id: number
-  logo: string
-  name: string
-  address: string
-}
-
-interface GoodsDetail {
-  id: number
-  name: string
-  price: number
-  marketPrice: number
-  sales: number
-  stock: number
-  images: string[]
-  specifications: string[]
-  harvestTime: string
-  plantingMethod: string
-  fertilizationPlan: string
-  pesticideUsage: string
-  detailImages: string[]
-  farmInfo: FarmInfo
-}
-
-// 商品详情数据
-const goodsDetail = ref<GoodsDetail>({
-  id: 1,
-  name: '从化本地火龙果',
-  price: 8.9,
-  marketPrice: 12.8,
-  sales: 2380,
-  stock: 1000,
-  images: [
-    '/static/goods/dragon-fruit-1.jpg',
-    '/static/goods/dragon-fruit-2.jpg',
-    '/static/goods/dragon-fruit-3.jpg',
-  ],
-  specifications: ['500g', '1kg', '2kg', '5kg'],
-  harvestTime: '2024-08-20',
-  plantingMethod: '有机种植',
-  fertilizationPlan: '使用天然有机肥料，定期施肥',
-  pesticideUsage: '不使用化学农药，采用生物防治',
-  detailImages: [
-    '/static/goods/detail-1.jpg',
-    '/static/goods/detail-2.jpg',
-    '/static/goods/detail-3.jpg',
-  ],
-  farmInfo: {
-    id: 1,
-    logo: '/static/farm/logo.jpg',
-    name: '阳光农场',
-    address: '广州市从化区温泉镇',
-  },
+// 商品信息
+const goodsInfo = ref({
+  id: 0,
+  name: '',
+  price: 0,
+  originalPrice: 0,
+  description: '',
+  tags: [],
+  detail: '',
 })
 
-// 购物车数量
-const cartCount = ref(2)
+// 商品图片
+const goodsImages = ref<string[]>([])
 
-// 收藏状态
-const isFavorite = ref(false)
-
-// SKU 相关
-const showSkuPopup = ref(false)
+// 规格相关
+const specifications = ref([
+  { label: '1斤装', value: '1斤' },
+  { label: '2斤装', value: '2斤' },
+  { label: '5斤装', value: '5斤' },
+])
 const selectedSpec = ref('')
-const quantity = ref(1)
 
-const selectedSku = computed(() => {
-  return selectedSpec.value ? selectedSpec.value : '请选择规格'
-})
+// 获取商品详情
+const getGoodsDetail = async (id: string) => {
+  try {
+    // TODO: 调用接口获取商品详情
+    // 模拟数据
+    goodsInfo.value = {
+      id: Number(id),
+      name: '有机大米',
+      price: 29.9,
+      originalPrice: 39.9,
+      description: '优质有机大米，无农药残留',
+      tags: ['有机认证', '无农药', '产地直供'],
+      detail: '<p>这是商品详情的富文本内容</p>',
+    }
+    goodsImages.value = [
+      '/static/goods/rice1.jpg',
+      '/static/goods/rice2.jpg',
+      '/static/goods/rice3.jpg',
+    ]
+  } catch (error) {
+    console.error('获取商品详情失败：', error)
+    showToast('获取商品详情失败')
+  }
+}
 
-// 方法
-const toggleFavorite = () => {
-  isFavorite.value = !isFavorite.value
-  uni.showToast({
-    title: isFavorite.value ? '收藏成功' : '已取消收藏',
-    icon: 'success',
+// 选择规格
+const selectSpec = (spec: string) => {
+  selectedSpec.value = spec
+}
+
+// 加入购物车
+const addToCart = () => {
+  if (!selectedSpec.value) {
+    showToast('请选择规格')
+    return
+  }
+  // TODO: 调用加入购物车接口
+  showToast('已加入购物车')
+}
+
+// 立即购买
+const buyNow = () => {
+  if (!selectedSpec.value) {
+    showToast('请选择规格')
+    return
+  }
+  uni.navigateTo({
+    url: '/pages-sub/order/create',
   })
 }
 
-const navigateToCart = () => {
+// 跳转到购物车
+const goToCart = () => {
   uni.switchTab({
     url: '/pages/cart/index',
   })
 }
 
-const navigateToFarm = () => {
-  uni.navigateTo({
-    url: '/pages-sub/farm/detail?id=' + goodsDetail.value.farmInfo.id,
-  })
-}
-
-const addToCart = () => {
-  showSkuPopup.value = true
-}
-
-const buyNow = () => {
-  showSkuPopup.value = true
-}
-
-const confirmSku = () => {
-  if (!selectedSpec.value) {
-    uni.showToast({
-      title: '请选择规格',
-      icon: 'none',
-    })
-    return
+// 页面加载
+onMounted(() => {
+  const pages = getCurrentPages()
+  const currentPage = pages[pages.length - 1] as any
+  const { id } = currentPage?.options || {}
+  if (id) {
+    getGoodsDetail(id)
   }
-
-  // TODO: 处理加入购物车或立即购买逻辑
-  showSkuPopup.value = false
-  uni.showToast({
-    title: '添加成功',
-    icon: 'success',
-  })
-}
+})
 </script>
 
 <style lang="scss">
 .container {
   min-height: 100vh;
-  padding-bottom: 120rpx;
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
   background-color: #f8f8f8;
 }
 
-.goods-swiper {
+.swiper {
+  width: 100%;
   height: 750rpx;
 
-  .goods-image {
+  .swiper-image {
     width: 100%;
     height: 100%;
   }
@@ -276,64 +196,86 @@ const confirmSku = () => {
 
     .price {
       margin-right: 20rpx;
-      font-size: 48rpx;
+      font-size: 40rpx;
       font-weight: bold;
       color: #ff6b6b;
     }
 
-    .market-price {
-      font-size: 24rpx;
+    .original-price {
+      font-size: 28rpx;
       color: #999;
       text-decoration: line-through;
     }
   }
 
   .title {
+    display: block;
     margin-bottom: 20rpx;
     font-size: 32rpx;
     font-weight: bold;
     color: #333;
   }
 
-  .sales-info {
-    font-size: 24rpx;
-    color: #999;
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 20rpx;
 
-    .sales {
-      margin-right: 40rpx;
+    .tag {
+      padding: 4rpx 16rpx;
+      margin: 0 20rpx 10rpx 0;
+      font-size: 24rpx;
+      color: #ff6b6b;
+      background-color: #fff5f5;
+      border-radius: 4rpx;
     }
+  }
+
+  .desc {
+    font-size: 28rpx;
+    color: #666;
   }
 }
 
-.farm-info {
+.spec-section {
   padding: 30rpx;
   margin-bottom: 20rpx;
   background-color: #fff;
 
-  .farm-header {
+  .section-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30rpx;
 
-    .farm-logo {
-      width: 80rpx;
-      height: 80rpx;
-      margin-right: 20rpx;
-      border-radius: 40rpx;
+    .title {
+      font-size: 32rpx;
+      font-weight: bold;
+      color: #333;
     }
 
-    .farm-detail {
-      flex: 1;
+    .selected-spec {
+      font-size: 28rpx;
+      color: #666;
+    }
+  }
 
-      .farm-name {
-        margin-bottom: 8rpx;
-        font-size: 28rpx;
-        font-weight: bold;
-        color: #333;
-      }
+  .spec-list {
+    display: flex;
+    flex-wrap: wrap;
 
-      .farm-address {
-        font-size: 24rpx;
-        color: #999;
+    .spec-item {
+      padding: 12rpx 30rpx;
+      margin: 0 20rpx 20rpx 0;
+      font-size: 28rpx;
+      color: #666;
+      background-color: #f5f5f5;
+      border-radius: 8rpx;
+      transition: all 0.3s;
+
+      &.active {
+        color: #fff;
+        background-color: #ff6b6b;
       }
     }
   }
@@ -343,44 +285,13 @@ const confirmSku = () => {
   padding: 30rpx;
   background-color: #fff;
 
-  .section-title {
-    padding-left: 20rpx;
-    margin-bottom: 30rpx;
-    font-size: 32rpx;
-    font-weight: bold;
-    color: #333;
-    border-left: 8rpx solid #018d71;
-  }
-
-  .harvest-info {
+  .section-header {
     margin-bottom: 30rpx;
 
-    .info-item {
-      display: flex;
-      margin-bottom: 20rpx;
-
-      .label {
-        width: 180rpx;
-        font-size: 26rpx;
-        color: #666;
-      }
-
-      .value {
-        flex: 1;
-        font-size: 26rpx;
-        color: #333;
-      }
-    }
-  }
-
-  .detail-images {
-    .detail-image {
-      width: 100%;
-      margin-bottom: 20rpx;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
+    .title {
+      font-size: 32rpx;
+      font-weight: bold;
+      color: #333;
     }
   }
 }
@@ -388,138 +299,43 @@ const confirmSku = () => {
 .action-bar {
   position: fixed;
   right: 0;
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom);
   left: 0;
   display: flex;
   align-items: center;
-  height: 100rpx;
-  padding: 0 20rpx;
+  justify-content: space-between;
+  padding: 20rpx;
   background-color: #fff;
-  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+  border-top: 1rpx solid #eee;
 
   .left-actions {
     display: flex;
-    margin-right: 20rpx;
 
     .action-item {
-      position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 0 30rpx;
+      margin-right: 40rpx;
 
       text {
         margin-top: 4rpx;
-        font-size: 20rpx;
+        font-size: 24rpx;
         color: #666;
-      }
-
-      .cart-badge {
-        position: absolute;
-        top: -8rpx;
-        right: 10rpx;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 32rpx;
-        height: 32rpx;
-        padding: 0 8rpx;
-        font-size: 20rpx;
-        color: #fff;
-        background-color: #ff6b6b;
-        border-radius: 16rpx;
       }
     }
   }
 
   .right-actions {
     display: flex;
-    flex: 1;
-    gap: 20rpx;
 
     .wd-button {
-      flex: 1;
+      width: 200rpx;
+      margin-left: 20rpx;
     }
   }
 }
 
-.sku-popup {
-  .sku-header {
-    display: flex;
-    padding: 30rpx;
-
-    .sku-image {
-      width: 160rpx;
-      height: 160rpx;
-      margin-right: 20rpx;
-      border-radius: 8rpx;
-    }
-
-    .sku-info {
-      flex: 1;
-
-      .sku-price {
-        margin-bottom: 12rpx;
-        font-size: 36rpx;
-        font-weight: bold;
-        color: #ff6b6b;
-      }
-
-      .sku-stock,
-      .sku-selected {
-        display: block;
-        margin-bottom: 8rpx;
-        font-size: 24rpx;
-        color: #999;
-      }
-    }
-  }
-
-  .sku-content {
-    padding: 0 30rpx;
-
-    .sku-group {
-      margin-bottom: 30rpx;
-
-      .group-title {
-        margin-bottom: 20rpx;
-        font-size: 28rpx;
-        color: #333;
-      }
-
-      .sku-options {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 20rpx;
-
-        .sku-option {
-          padding: 12rpx 30rpx;
-          font-size: 24rpx;
-          color: #666;
-          background-color: #f8f8f8;
-          border-radius: 100rpx;
-
-          &.selected {
-            color: #018d71;
-            background-color: #e6f7f3;
-          }
-        }
-      }
-    }
-
-    .quantity-section {
-      margin-bottom: 30rpx;
-
-      .group-title {
-        margin-bottom: 20rpx;
-        font-size: 28rpx;
-        color: #333;
-      }
-    }
-  }
-
-  .sku-footer {
-    padding: 30rpx;
-  }
+.safe-area-bottom {
+  height: env(safe-area-inset-bottom);
 }
 </style>

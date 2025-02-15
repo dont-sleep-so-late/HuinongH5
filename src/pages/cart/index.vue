@@ -1,739 +1,569 @@
 <template>
-  <view class="container">
+  <view class="cart-page">
+    <!-- 导航栏 -->
+    <view class="nav-bar">
+      <text class="title">购物车</text>
+      <text class="edit-btn" @click="isEdit = !isEdit">{{ isEdit ? '完成' : '编辑' }}</text>
+    </view>
+
+    <!-- 购物车为空 -->
+    <view class="empty" v-if="cartList.length === 0">
+      <image src="/static/icons/empty-cart.png" mode="aspectFit" class="empty-icon" />
+      <text class="empty-text">购物车还是空的</text>
+      <wd-button type="primary" size="small" @click="goShopping">去逛逛</wd-button>
+    </view>
+
     <!-- 购物车列表 -->
-    <view class="cart-list" v-if="cartList.length > 0">
-      <view class="cart-section">
-        <view class="section-header">
-          <wd-checkbox v-model="isAllSelected" @change="selectAll">全选</wd-checkbox>
-          <text class="edit-btn" @click="isEditing = !isEditing">
-            {{ isEditing ? '完成' : '编辑' }}
-          </text>
-        </view>
-        <view class="cart-item" v-for="item in cartList" :key="item.id">
-          <view class="checkbox">
-            <wd-checkbox v-model="item.selected" @change="updateTotal"></wd-checkbox>
+    <scroll-view v-else scroll-y class="cart-list">
+      <!-- 商家分组 -->
+      <view v-for="shop in cartList" :key="shop.id" class="shop-group">
+        <!-- 商家信息 -->
+        <view class="shop-header">
+          <view class="shop-info">
+            <wd-checkbox
+              v-model="shop.checked"
+              @change="handleShopCheck(shop)"
+              class="checkbox"
+            ></wd-checkbox>
+            <image :src="shop.avatar" mode="aspectFill" class="shop-avatar" />
+            <text class="shop-name">{{ shop.name }}</text>
           </view>
-          <image
-            :src="item.image"
-            mode="aspectFill"
-            class="goods-image"
-            @click="navigateToDetail(item)"
-          />
-          <view class="goods-info" @click="navigateToDetail(item)">
-            <text class="goods-name">{{ item.name }}</text>
-            <text class="goods-spec" v-if="item.spec">规格：{{ item.spec }}</text>
-            <view class="goods-meta">
-              <text class="goods-price">¥{{ item.price }}</text>
-              <view class="quantity-control">
-                <wd-button size="small" @click.stop="decreaseQuantity(item)">-</wd-button>
-                <wd-input-number
-                  v-model="item.quantity"
-                  min="1"
-                  :max="item.stock"
-                  @change="updateTotal"
-                />
-                <wd-button size="small" @click.stop="increaseQuantity(item)">+</wd-button>
+          <view class="shop-coupon" @click="viewShopCoupons(shop)">
+            <text class="coupon-text">领券</text>
+            <text class="iconfont icon-arrow-right"></text>
+          </view>
+        </view>
+
+        <!-- 商品列表 -->
+        <view class="goods-list">
+          <view v-for="goods in shop.goodsList" :key="goods.id" class="goods-item">
+            <wd-checkbox
+              v-model="goods.checked"
+              @change="handleGoodsCheck(shop, goods)"
+              class="checkbox"
+            ></wd-checkbox>
+            <image
+              :src="goods.image"
+              mode="aspectFill"
+              class="goods-image"
+              @click="viewGoodsDetail(goods)"
+            />
+            <view class="goods-info">
+              <text class="goods-name" @click="viewGoodsDetail(goods)">{{ goods.name }}</text>
+              <text class="goods-spec">{{ goods.spec }}</text>
+              <view class="goods-bottom">
+                <text class="goods-price">¥{{ goods.price }}</text>
+                <view class="quantity-control">
+                  <text
+                    class="minus"
+                    :class="{ disabled: goods.quantity <= 1 }"
+                    @click="updateQuantity(shop, goods, -1)"
+                  >
+                    -
+                  </text>
+                  <input
+                    type="number"
+                    class="quantity"
+                    v-model="goods.quantity"
+                    @blur="handleQuantityBlur(shop, goods)"
+                  />
+                  <text class="plus" @click="updateQuantity(shop, goods, 1)">+</text>
+                </view>
               </view>
             </view>
           </view>
-          <view class="delete-btn" v-if="isEditing" @click.stop="removeItem(item)">
-            <wd-icon name="delete" size="20"></wd-icon>
-          </view>
         </view>
       </view>
-
-      <!-- 优惠券选择 -->
-      <view class="coupon-section" v-if="!isEditing">
-        <view class="section-item" @click="showCouponPopup = true">
-          <text class="label">优惠券</text>
-          <view class="value">
-            <text>{{ selectedCoupon ? '-¥' + selectedCoupon.amount : '未使用' }}</text>
-            <wd-icon name="arrow-right" size="16" color="#999" />
-          </view>
-        </view>
-      </view>
-
-      <!-- 商品推荐 -->
-      <view class="recommend-section">
-        <view class="section-title">
-          <text>猜你喜欢</text>
-        </view>
-        <scroll-view scroll-x class="recommend-list">
-          <view
-            class="recommend-item"
-            v-for="item in recommendList"
-            :key="item.id"
-            @click="addToCart(item)"
-          >
-            <image :src="item.image" mode="aspectFill" class="recommend-image" />
-            <text class="recommend-name">{{ item.name }}</text>
-            <text class="recommend-price">¥{{ item.price }}</text>
-            <wd-button size="small" type="warning">加入购物车</wd-button>
-          </view>
-        </scroll-view>
-      </view>
-    </view>
-
-    <!-- 空购物车提示 -->
-    <view class="empty-cart" v-else>
-      <image src="/static/icons/empty-cart.png" mode="aspectFit" class="empty-icon" />
-      <text class="empty-text">购物车是空的</text>
-      <text class="empty-desc">去挑选一些心仪的商品吧</text>
-      <wd-button type="primary" @click="goToHome">去逛逛</wd-button>
-    </view>
+    </scroll-view>
 
     <!-- 底部结算栏 -->
-    <view class="settlement-bar" v-if="cartList.length > 0">
-      <view class="select-all" v-if="isEditing">
-        <wd-checkbox v-model="isAllSelected" @change="selectAll">全选</wd-checkbox>
+    <view class="bottom-bar">
+      <view class="select-all">
+        <wd-checkbox
+          v-model="isAllChecked"
+          @change="handleSelectAll"
+          class="checkbox"
+        ></wd-checkbox>
+        <text>全选</text>
       </view>
-      <view class="total-info" v-else>
-        <view class="price-detail">
-          <text class="total-price">合计：¥{{ totalPrice }}</text>
-          <text class="discount-price" v-if="selectedCoupon">
-            已优惠：¥{{ selectedCoupon.amount }}
-          </text>
+      <view v-if="!isEdit" class="total-info">
+        <view class="price-info">
+          <text>合计：</text>
+          <text class="total-price">¥{{ totalPrice }}</text>
         </view>
-        <text class="total-desc">不含运费</text>
+        <text class="tip">不含运费</text>
       </view>
-      <wd-button
-        type="primary"
-        :disabled="!selectedCount"
-        @click="isEditing ? deleteSelected() : settlement()"
-      >
-        {{ isEditing ? '删除(' + selectedCount + ')' : '结算(' + selectedCount + ')' }}
-      </wd-button>
+      <view class="action-btns">
+        <wd-button v-if="isEdit" type="warning" :disabled="!hasChecked" @click="deleteSelected">
+          删除
+        </wd-button>
+        <wd-button v-else type="primary" :disabled="!hasChecked" @click="settlement">
+          结算({{ checkedCount }})
+        </wd-button>
+      </view>
     </view>
 
-    <!-- 优惠券弹窗 -->
-    <wd-popup v-model="showCouponPopup" position="bottom">
-      <view class="coupon-popup">
-        <view class="popup-header">
-          <text class="title">优惠券</text>
-          <wd-icon name="close" size="20" @click="showCouponPopup = false" />
-        </view>
-        <view class="coupon-list">
-          <view
-            class="coupon-item"
-            v-for="coupon in availableCoupons"
-            :key="coupon.id"
-            :class="{ disabled: !coupon.available }"
-            @click="selectCoupon(coupon)"
-          >
-            <view class="coupon-left">
-              <text class="amount">¥{{ coupon.amount }}</text>
-              <text class="condition">满{{ coupon.condition }}可用</text>
-            </view>
-            <view class="coupon-right">
-              <text class="desc">{{ coupon.desc }}</text>
-              <text class="time">{{ coupon.validTime }}</text>
-            </view>
-          </view>
-        </view>
-      </view>
-    </wd-popup>
-
-    <!-- 底部操作栏 -->
-    <view class="action-bar">
-      <wd-button
-        type="primary"
-        :disabled="!selectedCount"
-        @click="isEditing ? deleteSelected() : settlement()"
-      >
-        {{ isEditing ? '删除(' + selectedCount + ')' : '结算(' + selectedCount + ')' }}
-      </wd-button>
-    </view>
+    <!-- 底部安全区域 -->
+    <view class="safe-area-bottom"></view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from '@/hooks/router'
+import { showToast } from '@/utils/toast'
 
-interface CartItem {
-  id: number
-  name: string
-  price: number
-  image: string
-  quantity: number
-  selected: boolean
-  spec?: string
-  stock: number
-}
-
-interface Coupon {
-  id: number
-  amount: number
-  condition: number
-  desc: string
-  validTime: string
-  available: boolean
-}
+const router = useRouter()
 
 // 编辑模式
-const isEditing = ref(false)
+const isEdit = ref(false)
 
-// 优惠券弹窗
-const showCouponPopup = ref(false)
-const selectedCoupon = ref<Coupon | null>(null)
-
-// 购物车列表数据
-const cartList = ref<CartItem[]>([
+// 购物车数据
+const cartList = ref([
   {
     id: 1,
-    name: '优质红富士苹果',
-    price: 15.8,
-    image: '/static/goods/apple.jpg',
-    quantity: 2,
-    selected: true,
-    spec: '5kg装',
-    stock: 10,
+    name: '生鲜专卖店',
+    avatar: '/static/shops/shop1.png',
+    checked: false,
+    goodsList: [
+      {
+        id: 1,
+        name: '新鲜水果玉米',
+        spec: '5斤装',
+        price: 29.9,
+        quantity: 1,
+        image: '/static/goods/corn.jpg',
+        checked: false,
+      },
+      {
+        id: 2,
+        name: '有机胡萝卜',
+        spec: '2.5kg',
+        price: 15.8,
+        quantity: 2,
+        image: '/static/goods/carrot.jpg',
+        checked: false,
+      },
+    ],
   },
   {
     id: 2,
-    name: '有机大米',
-    price: 49.9,
-    image: '/static/goods/rice.jpg',
-    quantity: 1,
-    selected: true,
-    spec: '10kg装',
-    stock: 20,
+    name: '农产品直营店',
+    avatar: '/static/shops/shop2.png',
+    checked: false,
+    goodsList: [
+      {
+        id: 3,
+        name: '新鲜土豆',
+        spec: '10斤装',
+        price: 39.9,
+        quantity: 1,
+        image: '/static/goods/potato.jpg',
+        checked: false,
+      },
+    ],
   },
 ])
 
-// 推荐商品列表
-const recommendList = ref([
-  {
-    id: 3,
-    name: '新鲜西红柿',
-    price: 8.8,
-    image: '/static/goods/tomato.jpg',
-  },
-  {
-    id: 4,
-    name: '黄瓜',
-    price: 5.5,
-    image: '/static/goods/cucumber.jpg',
-  },
-  {
-    id: 5,
-    name: '胡萝卜',
-    price: 4.8,
-    image: '/static/goods/carrot.jpg',
-  },
-])
-
-// 可用优惠券列表
-const availableCoupons = ref<Coupon[]>([
-  {
-    id: 1,
-    amount: 10,
-    condition: 100,
-    desc: '全场通用券',
-    validTime: '2024-03-31到期',
-    available: true,
-  },
-  {
-    id: 2,
-    amount: 5,
-    condition: 50,
-    desc: '新鲜水果券',
-    validTime: '2024-03-20到期',
-    available: true,
-  },
-  {
-    id: 3,
-    amount: 20,
-    condition: 200,
-    desc: '有机蔬菜券',
-    validTime: '2024-03-15到期',
-    available: false,
-  },
-])
-
-// 计算属性
-const isAllSelected = computed({
-  get: () => cartList.value.length > 0 && cartList.value.every((item) => item.selected),
-  set: (value) => cartList.value.forEach((item) => (item.selected = value)),
+// 计算是否全选
+const isAllChecked = computed(() => {
+  if (cartList.value.length === 0) return false
+  return cartList.value.every(
+    (shop) => shop.checked && shop.goodsList.every((goods) => goods.checked),
+  )
 })
 
-const selectedCount = computed(() => cartList.value.filter((item) => item.selected).length)
+// 计算选中商品数量
+const checkedCount = computed(() => {
+  return cartList.value.reduce((count, shop) => {
+    return count + shop.goodsList.filter((goods) => goods.checked).length
+  }, 0)
+})
 
+// 计算是否有选中商品
+const hasChecked = computed(() => checkedCount.value > 0)
+
+// 计算总价
 const totalPrice = computed(() => {
-  const price = cartList.value
-    .filter((item) => item.selected)
-    .reduce((total, item) => total + item.price * item.quantity, 0)
-
-  if (selectedCoupon.value && price >= selectedCoupon.value.condition) {
-    return (price - selectedCoupon.value.amount).toFixed(2)
-  }
-  return price.toFixed(2)
+  return cartList.value
+    .reduce((total, shop) => {
+      return (
+        total +
+        shop.goodsList.reduce((shopTotal, goods) => {
+          return shopTotal + (goods.checked ? goods.price * goods.quantity : 0)
+        }, 0)
+      )
+    }, 0)
+    .toFixed(2)
 })
 
-// 方法
-const updateTotal = () => {
-  // 触发计算属性更新
-}
-
-const selectAll = (value: boolean) => {
-  cartList.value.forEach((item) => (item.selected = value))
-}
-
-const increaseQuantity = (item: CartItem) => {
-  if (item.quantity < item.stock) {
-    item.quantity++
-    updateTotal()
-  } else {
-    uni.showToast({
-      title: '已达到最大库存',
-      icon: 'none',
-    })
-  }
-}
-
-const decreaseQuantity = (item: CartItem) => {
-  if (item.quantity > 1) {
-    item.quantity--
-    updateTotal()
-  }
-}
-
-const removeItem = (item: CartItem) => {
-  uni.showModal({
-    title: '提示',
-    content: '确定要删除这个商品吗？',
-    success: (res) => {
-      if (res.confirm) {
-        const index = cartList.value.findIndex((i) => i.id === item.id)
-        if (index !== -1) {
-          cartList.value.splice(index, 1)
-        }
-      }
-    },
+// 处理商家选择
+const handleShopCheck = (shop: any) => {
+  shop.goodsList.forEach((goods: any) => {
+    goods.checked = shop.checked
   })
 }
 
+// 处理商品选择
+const handleGoodsCheck = (shop: any, goods: any) => {
+  shop.checked = shop.goodsList.every((item: any) => item.checked)
+}
+
+// 全选/取消全选
+const handleSelectAll = () => {
+  const checked = !isAllChecked.value
+  cartList.value.forEach((shop) => {
+    shop.checked = checked
+    shop.goodsList.forEach((goods) => {
+      goods.checked = checked
+    })
+  })
+}
+
+// 更新商品数量
+const updateQuantity = (shop: any, goods: any, delta: number) => {
+  const newQuantity = goods.quantity + delta
+  if (newQuantity < 1) return
+  if (newQuantity > 99) {
+    showToast('最多购买99件')
+    return
+  }
+  goods.quantity = newQuantity
+}
+
+// 处理数量输入
+const handleQuantityBlur = (shop: any, goods: any) => {
+  let quantity = parseInt(goods.quantity)
+  if (isNaN(quantity) || quantity < 1) {
+    quantity = 1
+  } else if (quantity > 99) {
+    quantity = 99
+    showToast('最多购买99件')
+  }
+  goods.quantity = quantity
+}
+
+// 删除选中商品
 const deleteSelected = () => {
   uni.showModal({
     title: '提示',
     content: '确定要删除选中的商品吗？',
     success: (res) => {
       if (res.confirm) {
-        cartList.value = cartList.value.filter((item) => !item.selected)
+        cartList.value = cartList.value.filter((shop) => {
+          // 过滤未选中的商品
+          shop.goodsList = shop.goodsList.filter((goods) => !goods.checked)
+          // 返回还有商品的店铺
+          return shop.goodsList.length > 0
+        })
+        showToast('删除成功')
       }
     },
   })
 }
 
-const selectCoupon = (coupon: Coupon) => {
-  if (!coupon.available) {
-    uni.showToast({
-      title: '该优惠券不可用',
-      icon: 'none',
-    })
-    return
-  }
-
-  const totalAmount = cartList.value
-    .filter((item) => item.selected)
-    .reduce((total, item) => total + item.price * item.quantity, 0)
-
-  if (totalAmount < coupon.condition) {
-    uni.showToast({
-      title: '购物满' + coupon.condition + '元可用',
-      icon: 'none',
-    })
-    return
-  }
-
-  selectedCoupon.value = coupon
-  showCouponPopup.value = false
+// 查看商品详情
+const viewGoodsDetail = (goods: any) => {
+  router.navigate(`/pages-sub/goods/detail?id=${goods.id}`)
 }
 
-const addToCart = (item: any) => {
-  const existItem = cartList.value.find((i) => i.id === item.id)
-  if (existItem) {
-    increaseQuantity(existItem)
-  } else {
-    cartList.value.push({
-      ...item,
-      quantity: 1,
-      selected: true,
-      stock: 99,
-    })
-  }
-  uni.showToast({
-    title: '已加入购物车',
-    icon: 'success',
-  })
+// 查看店铺优惠券
+const viewShopCoupons = (shop: any) => {
+  router.navigate(`/pages-sub/shop/coupons?id=${shop.id}`)
 }
 
+// 去结算
 const settlement = () => {
-  const selectedItems = cartList.value.filter((item) => item.selected)
-  if (selectedItems.length === 0) {
-    uni.showToast({
-      title: '请选择要结算的商品',
-      icon: 'none',
-    })
+  const selectedGoods = cartList.value.reduce((result: any[], shop) => {
+    const shopGoods = shop.goodsList
+      .filter((goods) => goods.checked)
+      .map((goods) => ({
+        shopId: shop.id,
+        shopName: shop.name,
+        goodsId: goods.id,
+        quantity: goods.quantity,
+      }))
+    return result.concat(shopGoods)
+  }, [])
+
+  if (selectedGoods.length === 0) {
+    showToast('请选择要结算的商品')
     return
   }
 
-  uni.navigateTo({
-    url: '/pages-sub/order/create',
-  })
+  // 将选中的商品信息传递给订单创建页面
+  uni.setStorageSync('settlement_goods', selectedGoods)
+  router.navigate('/pages-sub/order/create')
 }
 
-const goToHome = () => {
-  uni.switchTab({
-    url: '/pages/index/index',
-  })
-}
-
-// 跳转到商品详情
-const navigateToDetail = (item: CartItem) => {
-  if (!isEditing.value) {
-    uni.navigateTo({
-      url: '/pages-sub/goods/detail?id=' + item.id + '&name=' + encodeURIComponent(item.name),
-    })
-  }
+// 去购物
+const goShopping = () => {
+  router.switchTab('/pages/index/index')
 }
 </script>
 
 <style lang="scss">
-.container {
+.cart-page {
   min-height: 100vh;
-  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom) + 100rpx);
   background-color: #f8f8f8;
 }
 
-.cart-section {
-  margin-bottom: 20rpx;
-  background-color: #fff;
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20rpx;
-    border-bottom: 1rpx solid #eee;
-
-    .edit-btn {
-      font-size: 28rpx;
-      color: #666;
-    }
-  }
-}
-
-.cart-item {
+.nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
-  padding: 20rpx;
-  background-color: #fff;
-  border-bottom: 1rpx solid #f5f5f5;
+  justify-content: space-between;
+  height: 88rpx;
+  padding: 0 32rpx;
+  background: linear-gradient(to bottom, #fff, rgba(255, 255, 255, 0.98));
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
 
-  .checkbox {
-    margin-right: 20rpx;
-  }
-
-  .goods-image {
-    width: 160rpx;
-    height: 160rpx;
-    margin-right: 20rpx;
-    border-radius: 8rpx;
-  }
-
-  .goods-info {
-    flex: 1;
-
-    .goods-name {
-      margin-bottom: 12rpx;
-      font-size: 28rpx;
-      color: #333;
-    }
-
-    .goods-spec {
-      margin-bottom: 12rpx;
-      font-size: 24rpx;
-      color: #999;
-    }
-
-    .goods-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      .goods-price {
-        font-size: 32rpx;
-        font-weight: bold;
-        color: #ff6b6b;
-      }
-
-      .quantity-control {
-        display: flex;
-        align-items: center;
-
-        .wd-input-number {
-          width: 80rpx;
-          margin: 0 10rpx;
-        }
-      }
-    }
-  }
-
-  .delete-btn {
-    padding: 20rpx;
-    color: #999;
-  }
-}
-
-.coupon-section {
-  margin-bottom: 20rpx;
-  background-color: #fff;
-
-  .section-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 30rpx 20rpx;
-
-    .label {
-      font-size: 28rpx;
-      color: #333;
-    }
-
-    .value {
-      display: flex;
-      align-items: center;
-      font-size: 28rpx;
-      color: #666;
-
-      .wd-icon {
-        margin-left: 10rpx;
-      }
-    }
-  }
-}
-
-.recommend-section {
-  padding: 30rpx 0;
-  background-color: #fff;
-
-  .section-title {
-    padding: 0 20rpx;
-    margin-bottom: 20rpx;
+  .title {
     font-size: 32rpx;
     font-weight: bold;
     color: #333;
   }
 
-  .recommend-list {
-    padding: 0 20rpx;
-    white-space: nowrap;
-
-    .recommend-item {
-      display: inline-block;
-      width: 200rpx;
-      margin-right: 20rpx;
-      text-align: center;
-
-      &:last-child {
-        margin-right: 0;
-      }
-
-      .recommend-image {
-        width: 200rpx;
-        height: 200rpx;
-        margin-bottom: 12rpx;
-        border-radius: 8rpx;
-      }
-
-      .recommend-name {
-        margin-bottom: 8rpx;
-        overflow: hidden;
-        font-size: 26rpx;
-        color: #333;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .recommend-price {
-        margin-bottom: 12rpx;
-        font-size: 28rpx;
-        font-weight: bold;
-        color: #ff6b6b;
-      }
-    }
+  .edit-btn {
+    font-size: 28rpx;
+    color: #666;
   }
 }
 
-.empty-cart {
+.empty {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   padding-top: 200rpx;
 
   .empty-icon {
-    width: 200rpx;
-    height: 200rpx;
+    width: 240rpx;
+    height: 240rpx;
     margin-bottom: 40rpx;
   }
 
   .empty-text {
-    margin-bottom: 20rpx;
-    font-size: 32rpx;
-    color: #333;
-  }
-
-  .empty-desc {
     margin-bottom: 40rpx;
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: #999;
   }
 }
 
-.settlement-bar {
-  position: fixed;
-  right: 0;
-  bottom: env(safe-area-inset-bottom);
-  left: 0;
-  display: flex;
-  align-items: center;
-  padding: 20rpx;
+.cart-list {
+  height: calc(100vh - 208rpx - 100rpx);
+}
+
+.shop-group {
+  margin-bottom: 20rpx;
+  overflow: hidden;
   background-color: #fff;
-  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+  border-radius: 16rpx;
 
-  .select-all {
-    margin-right: 20rpx;
-  }
+  .shop-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20rpx;
+    border-bottom: 1rpx solid #f5f5f5;
 
-  .total-info {
-    flex: 1;
+    .shop-info {
+      display: flex;
+      align-items: center;
 
-    .price-detail {
-      margin-bottom: 4rpx;
+      .checkbox {
+        margin-right: 20rpx;
+      }
 
-      .total-price {
-        margin-right: 10rpx;
-        font-size: 32rpx;
+      .shop-avatar {
+        width: 48rpx;
+        height: 48rpx;
+        margin-right: 16rpx;
+        border-radius: 8rpx;
+      }
+
+      .shop-name {
+        font-size: 28rpx;
         font-weight: bold;
+        color: #333;
+      }
+    }
+
+    .shop-coupon {
+      display: flex;
+      align-items: center;
+      padding: 8rpx 20rpx;
+      background-color: #fff5f5;
+      border-radius: 100rpx;
+
+      .coupon-text {
+        margin-right: 4rpx;
+        font-size: 24rpx;
         color: #ff6b6b;
       }
 
-      .discount-price {
+      .iconfont {
         font-size: 24rpx;
         color: #ff6b6b;
       }
     }
+  }
 
-    .total-desc {
+  .goods-list {
+    .goods-item {
+      display: flex;
+      align-items: center;
+      padding: 20rpx;
+      border-bottom: 1rpx solid #f5f5f5;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .checkbox {
+        margin-right: 20rpx;
+      }
+
+      .goods-image {
+        width: 160rpx;
+        height: 160rpx;
+        margin-right: 20rpx;
+        border-radius: 12rpx;
+      }
+
+      .goods-info {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+
+        .goods-name {
+          margin-bottom: 12rpx;
+          font-size: 28rpx;
+          font-weight: bold;
+          color: #333;
+        }
+
+        .goods-spec {
+          margin-bottom: 20rpx;
+          font-size: 24rpx;
+          color: #999;
+        }
+
+        .goods-bottom {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          .goods-price {
+            font-size: 32rpx;
+            font-weight: bold;
+            color: #ff6b6b;
+          }
+
+          .quantity-control {
+            display: flex;
+            align-items: center;
+            border: 1rpx solid #eee;
+            border-radius: 8rpx;
+
+            .minus,
+            .plus {
+              width: 60rpx;
+              height: 60rpx;
+              font-size: 28rpx;
+              line-height: 60rpx;
+              color: #333;
+              text-align: center;
+              background-color: #f8f8f8;
+
+              &.disabled {
+                color: #ccc;
+              }
+            }
+
+            .quantity {
+              width: 80rpx;
+              height: 60rpx;
+              font-size: 28rpx;
+              line-height: 60rpx;
+              color: #333;
+              text-align: center;
+              border-right: 1rpx solid #eee;
+              border-left: 1rpx solid #eee;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+.bottom-bar {
+  position: fixed;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 100rpx);
+  left: 0;
+  display: flex;
+  align-items: center;
+  height: 100rpx;
+  padding: 0 32rpx;
+  background: linear-gradient(to bottom, #fff, rgba(255, 255, 255, 0.98));
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+
+  .select-all {
+    display: flex;
+    align-items: center;
+
+    .checkbox {
+      margin-right: 16rpx;
+    }
+
+    text {
+      font-size: 28rpx;
+      color: #333;
+    }
+  }
+
+  .total-info {
+    flex: 1;
+    margin-left: 40rpx;
+
+    .price-info {
+      display: flex;
+      align-items: baseline;
+
+      text {
+        font-size: 28rpx;
+        color: #333;
+      }
+
+      .total-price {
+        font-size: 36rpx;
+        font-weight: bold;
+        color: #ff6b6b;
+      }
+    }
+
+    .tip {
       font-size: 24rpx;
       color: #999;
     }
   }
 
-  .wd-button {
-    width: 200rpx;
-    margin-left: 20rpx;
-  }
-}
-
-.coupon-popup {
-  .popup-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 30rpx;
-    border-bottom: 1rpx solid #eee;
-
-    .title {
-      font-size: 32rpx;
-      font-weight: bold;
-      color: #333;
-    }
-  }
-
-  .coupon-list {
-    max-height: 60vh;
-    padding: 20rpx;
-    overflow-y: auto;
-
-    .coupon-item {
-      position: relative;
-      display: flex;
-      margin-bottom: 20rpx;
-      overflow: hidden;
-      background: linear-gradient(135deg, #ff6b6b, #ff8787);
-      border-radius: 12rpx;
-
-      &.disabled {
-        background: linear-gradient(135deg, #999, #bbb);
-        opacity: 0.6;
-      }
-
-      &::before {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 200rpx;
-        width: 20rpx;
-        content: '';
-        background-image: radial-gradient(
-          circle at 0 6rpx,
-          transparent 0,
-          transparent 4rpx,
-          #fff 4rpx,
-          #fff 8rpx
-        );
-        background-position: 10rpx center;
-        background-size: 20rpx 12rpx;
-      }
-
-      .coupon-left {
-        width: 200rpx;
-        padding: 20rpx;
-        color: #fff;
-        text-align: center;
-
-        .amount {
-          margin-bottom: 8rpx;
-          font-size: 48rpx;
-          font-weight: bold;
-        }
-
-        .condition {
-          font-size: 24rpx;
-        }
-      }
-
-      .coupon-right {
-        flex: 1;
-        padding: 20rpx;
-        background-color: #fff;
-
-        .desc {
-          margin-bottom: 8rpx;
-          font-size: 28rpx;
-          color: #333;
-        }
-
-        .time {
-          font-size: 24rpx;
-          color: #999;
-        }
-      }
+  .action-btns {
+    .wd-button {
+      width: 200rpx;
+      margin-left: 20rpx;
     }
   }
 }
 
-.action-bar {
-  position: fixed;
-  right: 0;
-  bottom: env(safe-area-inset-bottom);
-  left: 0;
-  display: flex;
-  align-items: center;
-  height: 100rpx;
-  padding: 0 20rpx;
-  background-color: #fff;
-  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+.safe-area-bottom {
+  height: env(safe-area-inset-bottom);
 }
 </style>

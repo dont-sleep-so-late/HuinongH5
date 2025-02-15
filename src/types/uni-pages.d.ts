@@ -8,7 +8,13 @@ interface NavigateToOptions {
        "/pages/about/about" |
        "/pages/cart/index" |
        "/pages/category/index" |
+       "/pages/forgot-password/index" |
+       "/pages/login/index" |
        "/pages/message/index" |
+       "/pages/publish/index" |
+       "/pages/register/index" |
+       "/pages/role/index" |
+       "/pages/shelf/index" |
        "/pages/user/index";
 }
 interface RedirectToOptions extends NavigateToOptions {}

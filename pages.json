@@ -1,0 +1,27 @@
+{
+  "subPackages": [
+    {
+      "root": "pages-sub",
+      "pages": [
+        {
+          "path": "order/detail",
+          "style": {
+            "navigationBarTitleText": "订单详情"
+          }
+        },
+        {
+          "path": "order/logistics",
+          "style": {
+            "navigationBarTitleText": "物流信息"
+          }
+        },
+        {
+          "path": "order/review",
+          "style": {
+            "navigationBarTitleText": "订单评价"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -81,6 +81,7 @@ declare global {
   const useModel: typeof import('vue')['useModel']
   const useNavbarWeixin: (typeof import('../hooks/useNavbarWeixin'))['default']
   const useRequest: typeof import('../hooks/useRequest')['default']
+  const useRouter: typeof import('../hooks/router')['useRouter']
   const useSlots: typeof import('vue')['useSlots']
   const useTemplateRef: typeof import('vue')['useTemplateRef']
   const useUpload: typeof import('../hooks/useUpload')['default']
@@ -176,6 +177,7 @@ declare module 'vue' {
     readonly useId: UnwrapRef<typeof import('vue')['useId']>
     readonly useModel: UnwrapRef<typeof import('vue')['useModel']>
     readonly useRequest: UnwrapRef<typeof import('../hooks/useRequest')['default']>
+    readonly useRouter: UnwrapRef<typeof import('../hooks/router')['useRouter']>
     readonly useSlots: UnwrapRef<typeof import('vue')['useSlots']>
     readonly useTemplateRef: UnwrapRef<typeof import('vue')['useTemplateRef']>
     readonly useUpload: UnwrapRef<typeof import('../hooks/useUpload')['default']>
