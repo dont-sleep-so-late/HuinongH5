@@ -7,7 +7,7 @@
       :class="{ active: selected === index }"
       @click="switchTab(item.pagePath, index)"
     >
-      <image :src="selected === index ? item.selectedIconPath : item.iconPath" />
+      <wd-icon :name="selected === index ? item.selectedIcon : item.icon" size="24" />
       <text>{{ item.text }}</text>
     </view>
   </view>
@@ -21,32 +21,32 @@ const buyerTabs = [
   {
     pagePath: '/pages/index/index',
     text: '首页',
-    iconPath: '/static/tabbar/home.png',
-    selectedIconPath: '/static/tabbar/homeHL.png',
+    icon: 'home',
+    selectedIcon: 'home-fill',
   },
   {
     pagePath: '/pages/category/index',
     text: '分类',
-    iconPath: '/static/tabbar/example.png',
-    selectedIconPath: '/static/tabbar/exampleHL.png',
+    icon: 'view-list',
+    selectedIcon: 'view-list-fill',
   },
   {
     pagePath: '/pages/message/index',
     text: '消息',
-    iconPath: '/static/tabbar/message.png',
-    selectedIconPath: '/static/tabbar/messageHL.png',
+    icon: 'message',
+    selectedIcon: 'message-fill',
   },
   {
     pagePath: '/pages/cart/index',
     text: '购物车',
-    iconPath: '/static/tabbar/cart.png',
-    selectedIconPath: '/static/tabbar/cartHL.png',
+    icon: 'cart',
+    selectedIcon: 'cart-fill',
   },
   {
     pagePath: '/pages/user/index',
     text: '我的',
-    iconPath: '/static/tabbar/person.png',
-    selectedIconPath: '/static/tabbar/personHL.png',
+    icon: 'user',
+    selectedIcon: 'user-fill',
   },
 ]
 
@@ -55,26 +55,26 @@ const sellerTabs = [
   {
     pagePath: '/pages/index/index',
     text: '商城',
-    iconPath: '/static/tabbar/home.png',
-    selectedIconPath: '/static/tabbar/homeHL.png',
+    icon: 'home',
+    selectedIcon: 'home-fill',
   },
   {
     pagePath: '/pages/shelf/index',
     text: '货架',
-    iconPath: '/static/tabbar/shelf.png',
-    selectedIconPath: '/static/tabbar/shelfHL.png',
+    icon: 'goods',
+    selectedIcon: 'goods-fill',
   },
   {
     pagePath: '/pages/message/index',
     text: '消息',
-    iconPath: '/static/tabbar/message.png',
-    selectedIconPath: '/static/tabbar/messageHL.png',
+    icon: 'message',
+    selectedIcon: 'message-fill',
   },
   {
     pagePath: '/pages/user/index',
     text: '我的',
-    iconPath: '/static/tabbar/person.png',
-    selectedIconPath: '/static/tabbar/personHL.png',
+    icon: 'user',
+    selectedIcon: 'user-fill',
   },
 ]
 

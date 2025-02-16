@@ -14,7 +14,6 @@
     }
   },
   "tabBar": {
-    "custom": true,
     "color": "#999999",
     "selectedColor": "#018d71",
     "backgroundColor": "#f8f8f8",
@@ -71,6 +70,24 @@
           "path": "planting",
           "style": {
             "navigationBarTitleText": "种植指南"
+          }
+        },
+        {
+          "path": "forecast-detail",
+          "style": {
+            "navigationBarTitleText": "价格预测详情"
+          }
+        },
+        {
+          "path": "price-detail",
+          "style": {
+            "navigationBarTitleText": "价格详情"
+          }
+        },
+        {
+          "path": "search",
+          "style": {
+            "navigationBarTitleText": "搜索"
           }
         }
       ]

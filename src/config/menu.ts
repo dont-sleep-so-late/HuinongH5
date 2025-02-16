@@ -1,3 +1,6 @@
+// 用户角色类型
+export type UserRole = 'buyer' | 'seller'
+
 interface TabBarItem {
   pagePath: string
   text: string
@@ -85,4 +88,9 @@ export const sellerTabBar: TabBar = {
       selectedIconPath: 'static/tabbar/userHL.png',
     },
   ],
+}
+
+// 获取对应角色的菜单配置
+export const getTabBarByRole = (role: UserRole): TabBar => {
+  return role === 'buyer' ? buyerTabBar : sellerTabBar
 }

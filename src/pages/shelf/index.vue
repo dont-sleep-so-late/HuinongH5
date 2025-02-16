@@ -1,32 +1,47 @@
 <template>
   <view class="shelf-container">
+    <!-- 搜索栏 -->
+    <view class="search-bar">
+      <wd-search v-model="searchParams.keyword" placeholder="搜索商品名称" @search="handleSearch" />
+    </view>
+
     <!-- 顶部操作栏 -->
     <view class="action-bar">
-      <wd-button type="primary" size="small" @click="handleAddGoods">添加商品</wd-button>
-      <view class="filter-group">
+      <view class="left">
+        <wd-button type="primary" size="small" @click="handleAddGoods">
+          <template #icon>
+            <wd-icon name="add" />
+          </template>
+          添加商品
+        </wd-button>
+      </view>
+      <view class="right">
         <wd-button-group>
           <wd-button
-            :type="status === '' ? 'primary' : 'default'"
+            v-for="btn in statusButtons"
+            :key="btn.value"
+            :type="searchParams.status === btn.value ? 'primary' : 'default'"
             size="small"
-            @click="handleFilterStatus('')"
+            @click="handleFilterStatus(btn.value)"
           >
-            全部
-          </wd-button>
-          <wd-button
-            :type="status === 'on' ? 'primary' : 'default'"
-            size="small"
-            @click="handleFilterStatus('on')"
-          >
-            已上架
-          </wd-button>
-          <wd-button
-            :type="status === 'off' ? 'primary' : 'default'"
-            size="small"
-            @click="handleFilterStatus('off')"
-          >
-            已下架
+            {{ btn.text }}
           </wd-button>
         </wd-button-group>
+        <wd-dropdown>
+          <wd-button size="small">
+            {{ currentSort.text }}
+            <wd-icon name="arrow-down" />
+          </wd-button>
+          <template #content>
+            <wd-dropdown-item
+              v-for="item in sortOptions"
+              :key="item.value"
+              :value="item.value"
+              :label="item.text"
+              @click="handleSort(item)"
+            />
+          </template>
+        </wd-dropdown>
       </view>
     </view>
 
@@ -39,8 +54,11 @@
             <view class="goods-info">
               <view class="goods-name">{{ goods.name }}</view>
               <view class="goods-price">¥{{ goods.price }}</view>
-              <view class="goods-stock">库存: {{ goods.stock }}</view>
-              <view class="goods-status" :class="goods.status === 'on' ? 'on' : 'off'">
+              <view class="goods-stats">
+                <text>库存: {{ goods.stock }}{{ goods.unit }}</text>
+                <text>销量: {{ goods.sales }}</text>
+              </view>
+              <view class="goods-status" :class="goods.status">
                 {{ goods.status === 'on' ? '已上架' : '已下架' }}
               </view>
             </view>
@@ -66,52 +84,117 @@
 
     <!-- 操作确认弹窗 -->
     <wd-message-box
-      v-model="showConfirm"
-      :title="confirmTitle"
-      :content="confirmContent"
+      v-model="confirmState.show"
+      :title="confirmState.title"
+      :content="confirmState.content"
       @confirm="handleConfirm"
     />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { GoodsItem } from '@/types/goods'
+import { ref, computed } from 'vue'
+import type { GoodsItem, GoodsStatus, GoodsQueryParams } from '@/types/goods'
 
-// 状态过滤
-const status = ref('')
-const handleFilterStatus = (newStatus: string) => {
-  status.value = newStatus
-  paging.value?.reload()
-}
+// 搜索参数
+const searchParams = ref<GoodsQueryParams>({
+  pageNo: 1,
+  pageSize: 10,
+  keyword: '',
+  status: undefined,
+  sort: undefined,
+  order: undefined,
+})
+
+// 状态按钮配置
+const statusButtons = [
+  { text: '全部', value: undefined },
+  { text: '已上架', value: 'on' as GoodsStatus },
+  { text: '已下架', value: 'off' as GoodsStatus },
+]
+
+// 排序选项
+const sortOptions = [
+  { text: '默认排序', value: '' },
+  { text: '价格升序', value: 'price_asc' },
+  { text: '价格降序', value: 'price_desc' },
+  { text: '最新上架', value: 'time_desc' },
+  { text: '最早上架', value: 'time_asc' },
+]
+
+// 当前排序
+const currentSort = computed(() => {
+  return (
+    sortOptions.find(
+      (item) => item.value === `${searchParams.value.sort || ''}_${searchParams.value.order || ''}`,
+    ) || sortOptions[0]
+  )
+})
 
 // 分页列表
 const paging = ref()
 const goodsList = ref<GoodsItem[]>([])
 
+// 重载列表
+const reloadList = () => {
+  paging.value?.reload()
+}
+
+// 搜索处理
+const handleSearch = () => {
+  reloadList()
+}
+
+// 状态筛选
+const handleFilterStatus = (status?: GoodsStatus) => {
+  searchParams.value.status = status
+  reloadList()
+}
+
+// 排序处理
+const handleSort = (sort: (typeof sortOptions)[0]) => {
+  const [field, order] = sort.value.split('_')
+  searchParams.value.sort = field || undefined
+  searchParams.value.order = (order as 'asc' | 'desc') || undefined
+  reloadList()
+}
+
 // 查询商品列表
 const queryGoodsList = async (pageNo: number, pageSize: number) => {
   try {
     const params = {
+      ...searchParams.value,
       pageNo,
       pageSize,
-      status: status.value,
     }
-    const res = await uni.$api.goods.getSellerGoods(params)
+    const { data } = await uni.$api.goods.getSellerGoods(params)
     return {
-      list: res.data.list,
-      total: res.data.total,
+      list: data.list,
+      total: data.total,
     }
   } catch (error) {
-    uni.showToast({
-      title: '获取商品列表失败',
-      icon: 'none',
-    })
+    showError('获取商品列表失败')
     return {
       list: [],
       total: 0,
     }
   }
+}
+
+// 统一的错误提示
+const showError = (message: string) => {
+  uni.showToast({
+    title: message,
+    icon: 'none',
+  })
+}
+
+// 统一的成功提示
+const showSuccess = (message: string) => {
+  uni.showToast({
+    title: message,
+    icon: 'success',
+  })
 }
 
 // 添加商品
@@ -124,55 +207,63 @@ const handleAddGoods = () => {
 // 编辑商品
 const handleEditGoods = (goods: GoodsItem) => {
   uni.navigateTo({
-    url: '/pages-sub/goods/edit?id=' + goods.id,
+    url: `/pages-sub/goods/edit?id=${goods.id}`,
   })
 }
 
-// 确认弹窗
-const showConfirm = ref(false)
-const confirmTitle = ref('')
-const confirmContent = ref('')
-const confirmCallback = ref<() => void>()
+// 确认弹窗状态
+interface ConfirmState {
+  show: boolean
+  title: string
+  content: string
+  callback?: () => Promise<void>
+}
 
+const confirmState = ref<ConfirmState>({
+  show: false,
+  title: '',
+  content: '',
+})
+
+// 显示确认弹窗
+const showConfirm = (title: string, content: string, callback: () => Promise<void>) => {
+  confirmState.value = {
+    show: true,
+    title,
+    content,
+    callback,
+  }
+}
+
+// 确认操作
 const handleConfirm = async () => {
   try {
-    await confirmCallback.value?.()
-    uni.showToast({
-      title: '操作成功',
-      icon: 'success',
-    })
-    paging.value?.reload()
+    await confirmState.value.callback?.()
+    showSuccess('操作成功')
+    reloadList()
   } catch (error) {
-    uni.showToast({
-      title: '操作失败',
-      icon: 'none',
-    })
+    showError('操作失败')
   }
 }
 
 // 切换商品状态
 const handleToggleStatus = (goods: GoodsItem) => {
   const newStatus = goods.status === 'on' ? 'off' : 'on'
-  confirmTitle.value = newStatus === 'on' ? '上架商品' : '下架商品'
-  confirmContent.value =
-    '确定要' + (newStatus === 'on' ? '上架' : '下架') + '商品【' + goods.name + '】吗？'
-  confirmCallback.value = async () => {
+  const action = newStatus === 'on' ? '上架' : '下架'
+
+  showConfirm(`${action}商品`, `确定要${action}商品【${goods.name}】吗？`, async () => {
     await uni.$api.goods.updateGoodsStatus({
       id: goods.id,
       status: newStatus,
     })
-  }
-  showConfirm.value = true
+  })
 }
 
 // 删除商品
 const handleDeleteGoods = (goods: GoodsItem) => {
-  confirmTitle.value = '删除商品'
-  confirmContent.value = '确定要删除商品【' + goods.name + '】吗？'
-  confirmCallback.value = async () => {
+  showConfirm('删除商品', `确定要删除商品【${goods.name}】吗？`, async () => {
     await uni.$api.goods.deleteGoods(goods.id)
-  }
-  showConfirm.value = true
+  })
 }
 </script>
 
@@ -182,6 +273,10 @@ const handleDeleteGoods = (goods: GoodsItem) => {
   padding: 20rpx;
   background-color: #f8f8f8;
 
+  .search-bar {
+    margin-bottom: 20rpx;
+  }
+
   .action-bar {
     display: flex;
     align-items: center;
@@ -190,6 +285,12 @@ const handleDeleteGoods = (goods: GoodsItem) => {
     margin-bottom: 20rpx;
     background-color: #fff;
     border-radius: 8rpx;
+
+    .right {
+      display: flex;
+      gap: 20rpx;
+      align-items: center;
+    }
   }
 
   .goods-list {
@@ -225,7 +326,9 @@ const handleDeleteGoods = (goods: GoodsItem) => {
           color: #ff4d4f;
         }
 
-        .goods-stock {
+        .goods-stats {
+          display: flex;
+          gap: 20rpx;
           font-size: 24rpx;
           color: #999;
         }

@@ -19,6 +19,9 @@ interface NavigateToOptions {
        "/pages-sub/data/price" |
        "/pages-sub/data/forecast" |
        "/pages-sub/data/planting" |
+       "/pages-sub/data/forecast-detail" |
+       "/pages-sub/data/price-detail" |
+       "/pages-sub/data/search" |
        "/pages-sub/farm/index" |
        "/pages-sub/user/verify" |
        "/pages-sub/user/settings" |

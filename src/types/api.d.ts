@@ -1,4 +1,5 @@
 import type { UserInfo, LoginResponse } from './user'
+import type { GoodsItem, GoodsQueryParams, GoodsStatus } from './goods'
 
 export interface ProductParams {
   pageNo?: number
@@ -106,6 +107,18 @@ export interface Api {
   createProduct: (data: ProductData) => Promise<ApiResponse>
   updateProduct: (id: string, data: Partial<ProductData>) => Promise<ApiResponse>
   deleteProduct: (id: string) => Promise<ApiResponse>
+
+  // 卖家商品管理
+  goods: {
+    getSellerGoods: (
+      params: GoodsQueryParams,
+    ) => Promise<ApiResponse<{ list: GoodsItem[]; total: number }>>
+    updateGoodsStatus: (params: {
+      id: string | number
+      status: GoodsStatus
+    }) => Promise<ApiResponse>
+    deleteGoods: (id: string | number) => Promise<ApiResponse>
+  }
 
   // 分类相关
   getCategories: () => Promise<ApiResponse<Category[]>>

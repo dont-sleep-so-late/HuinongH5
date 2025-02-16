@@ -1,5 +1,30 @@
+/// <reference types="@dcloudio/types" />
 import { defineUniPages } from '@uni-helper/vite-plugin-uni-pages'
-import { buyerTabBar } from './src/config/menu'
+import type { TabBar as UniTabBar } from '@uni-helper/vite-plugin-uni-pages'
+import { getTabBarByRole } from './src/config/menu'
+import type { UserRole } from './src/config/menu'
+
+// 从缓存或状态管理中获取用户角色
+const getUserRole = (): UserRole => {
+  try {
+    const role = uni.getStorageSync('userRole') as UserRole
+    return role || 'buyer' // 默认返回买家角色
+  } catch (e) {
+    console.error('获取用户角色失败:', e)
+    return 'buyer'
+  }
+}
+
+// 转换菜单配置为uni-pages要求的格式
+const convertTabBar = (tabBar: ReturnType<typeof getTabBarByRole>): UniTabBar => {
+  const list = tabBar.list.slice(0, 5)
+  return {
+    color: tabBar.color,
+    selectedColor: tabBar.selectedColor,
+    backgroundColor: tabBar.backgroundColor,
+    list: [list[0], list[1], list[2], list[3], list[4]] as UniTabBar['list'],
+  }
+}
 
 export default defineUniPages({
   globalStyle: {
@@ -17,7 +42,7 @@ export default defineUniPages({
         'z-paging/components/z-paging$1/z-paging$1.vue',
     },
   },
-  tabBar: buyerTabBar,
+  tabBar: convertTabBar(getTabBarByRole(getUserRole())),
   subPackages: [
     {
       root: 'pages-sub/data',
@@ -38,6 +63,24 @@ export default defineUniPages({
           path: 'planting',
           style: {
             navigationBarTitleText: '种植指南',
+          },
+        },
+        {
+          path: 'forecast-detail',
+          style: {
+            navigationBarTitleText: '价格预测详情',
+          },
+        },
+        {
+          path: 'price-detail',
+          style: {
+            navigationBarTitleText: '价格详情',
+          },
+        },
+        {
+          path: 'search',
+          style: {
+            navigationBarTitleText: '搜索',
           },
         },
       ],
