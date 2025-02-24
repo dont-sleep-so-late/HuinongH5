@@ -9,37 +9,53 @@
     <view class="form-container">
       <!-- 登录方式切换 -->
       <view class="login-type">
-        <text
-          :class="['type-item', loginType === 'phone' ? 'active' : '']"
-          @click="loginType = 'phone'"
+        <view
+          v-for="type in loginTypes"
+          :key="type.value"
+          :class="['type-item', loginType === type.value ? 'active' : '']"
+          @click="handleTypeChange(type.value)"
         >
-          手机号登录
-        </text>
-        <text
-          :class="['type-item', loginType === 'password' ? 'active' : '']"
-          @click="loginType = 'password'"
-        >
-          密码登录
-        </text>
+          {{ type.label }}
+          <text class="active-line" v-if="loginType === type.value"></text>
+        </view>
       </view>
 
-      <!-- 手机号登录 -->
-      <view v-if="loginType === 'phone'" class="form-group">
+      <!-- 登录方式切换 -->
+      <view class="login-method">
+        <view
+          v-for="method in loginMethods"
+          :key="method.value"
+          :class="['method-item', loginMethod === method.value ? 'active' : '']"
+          @click="handleMethodChange(method.value)"
+        >
+          {{ method.label }}
+          <text class="active-line" v-if="loginMethod === method.value"></text>
+        </view>
+      </view>
+
+      <view class="form-group">
+        <!-- 账号输入 -->
         <view class="input-group">
           <wd-input
-            v-model="form.phone"
-            placeholder="请输入手机号"
-            type="number"
-            :maxlength="11"
+            v-model="form.account"
+            :placeholder="loginType === 'phone' ? '请输入手机号' : '请输入邮箱'"
+            :type="loginType === 'phone' ? 'number' : 'text'"
+            :maxlength="loginType === 'phone' ? 11 : 50"
             clearable
           >
             <template #prefix>
-              <text class="iconfont icon-phone"></text>
+              <text
+                class="iconfont"
+                :class="loginType === 'phone' ? 'icon-phone' : 'icon-email'"
+              ></text>
             </template>
           </wd-input>
         </view>
+
+        <!-- 验证码/密码输入 -->
         <view class="input-group">
           <wd-input
+            v-if="loginMethod === 'code'"
             v-model="form.code"
             placeholder="请输入验证码"
             type="number"
@@ -55,20 +71,8 @@
               </text>
             </template>
           </wd-input>
-        </view>
-      </view>
-
-      <!-- 密码登录 -->
-      <view v-else class="form-group">
-        <view class="input-group">
-          <wd-input v-model="form.account" placeholder="请输入手机号/邮箱" clearable>
-            <template #prefix>
-              <text class="iconfont icon-user"></text>
-            </template>
-          </wd-input>
-        </view>
-        <view class="input-group">
           <wd-input
+            v-else
             v-model="form.password"
             placeholder="请输入密码"
             :type="showPassword ? 'text' : 'password'"
@@ -125,36 +129,121 @@ import { ref, reactive } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
 import { useUserStore } from '@/stores/user'
+import {
+  loginByPhone,
+  loginByPhoneCode,
+  loginByEmail,
+  loginByEmailCode,
+  sendPhoneCode,
+  sendEmailCode,
+} from '@/services/auth'
+import { md5 } from '@/utils/crypto'
 
 const router = useRouter()
+const userStore = useUserStore()
 const loading = ref(false)
-const loginType = ref('phone')
+const loginType = ref('phone') // phone, email
+const loginMethod = ref('code') // code, password
 const showPassword = ref(false)
 const counting = ref(false)
 const count = ref(60)
 
 const form = reactive({
-  phone: '',
-  code: '',
   account: '',
+  code: '',
   password: '',
 })
+
+// 登录方式配置
+const loginTypes = [
+  { label: '手机号登录', value: 'phone' },
+  { label: '邮箱登录', value: 'email' },
+] as const
+
+// 登录类型配置
+const loginMethods = [
+  { label: '验证码登录', value: 'code' },
+  { label: '密码登录', value: 'password' },
+] as const
+
+// 登录方式切换处理
+const handleTypeChange = (type: (typeof loginTypes)[number]['value']) => {
+  if (type === loginType.value) return
+  // 重置表单
+  form.account = ''
+  form.code = ''
+  form.password = ''
+  // 重置倒计时
+  if (counting.value) {
+    counting.value = false
+    count.value = 60
+  }
+  loginType.value = type
+}
+
+// 登录类型切换处理
+const handleMethodChange = (method: (typeof loginMethods)[number]['value']) => {
+  if (method === loginMethod.value) return
+  // 重置验证码/密码
+  if (method === 'code') {
+    form.password = ''
+  } else {
+    form.code = ''
+    // 重置倒计时
+    if (counting.value) {
+      counting.value = false
+      count.value = 60
+    }
+  }
+  loginMethod.value = method
+}
+
+// 验证邮箱格式
+const validateEmail = (email: string) => {
+  return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)
+}
+
+// 验证手机号格式
+const validatePhone = (phone: string) => {
+  return /^1[3-9]\d{9}$/.test(phone)
+}
 
 // 发送验证码
 const handleSendCode = async () => {
   if (counting.value) return
-  if (!form.phone) {
-    showToast('请输入手机号')
+  if (!form.account) {
+    showToast(`请输入${loginType.value === 'phone' ? '手机号' : '邮箱'}`)
     return
   }
-  if (!/^1[3-9]\d{9}$/.test(form.phone)) {
+
+  // 验证格式
+  if (loginType.value === 'phone' && !validatePhone(form.account)) {
     showToast('请输入正确的手机号')
+    return
+  }
+  if (loginType.value === 'email' && !validateEmail(form.account)) {
+    showToast('请输入正确的邮箱')
     return
   }
 
   try {
     counting.value = true
-    // TODO: 调用发送验证码接口
+
+    if (loginType.value === 'email') {
+      // 调用发送邮箱验证码接口
+      await sendEmailCode({
+        email: form.account,
+        type: 'login',
+      })
+    } else {
+      // 调用发送手机验证码接口
+      await sendPhoneCode({
+        phone: form.account,
+        type: 'login',
+      })
+    }
+
+    // 开始倒计时
     const timer = setInterval(() => {
       if (count.value > 0) {
         count.value--
@@ -164,81 +253,166 @@ const handleSendCode = async () => {
         count.value = 60
       }
     }, 1000)
-  } catch (error) {
+
+    showToast('验证码已发送')
+  } catch (error: any) {
     counting.value = false
-    showToast('发送失败，请重试')
+    count.value = 60
+    showToast(error.message || '发送失败，请重试')
   }
+}
+
+// 处理登录成功
+const handleLoginSuccess = (data: { token: string; userInfo: any }) => {
+  // 存储token
+  uni.setStorageSync('token', data.token)
+
+  // 更新用户信息
+  const userInfo = {
+    id: data.userInfo.id,
+    username: data.userInfo.username,
+    nickname: data.userInfo.nickname,
+    avatar: data.userInfo.avatar,
+    phone: data.userInfo.phone,
+    email: data.userInfo.email,
+    role: data.userInfo.role,
+    isVerified: data.userInfo.isVerified,
+    createTime: data.userInfo.createTime,
+  }
+  userStore.login(userInfo)
+
+  // 处理登录后跳转
+  handleLoginRedirect(userInfo)
+}
+
+// 处理登录后跳转
+const handleLoginRedirect = (userInfo: any) => {
+  // 如果是卖家且未认证，跳转到认证页面
+  if (userInfo.role === 'seller' && !userInfo.isVerified) {
+    showToast('请先完成实名认证')
+    router.navigate('/pages-sub/user/verify')
+    return
+  }
+
+  // 如果有重定向地址，跳转到重定向地址
+  const redirect = uni.getStorageSync('redirect')
+  if (redirect) {
+    uni.removeStorageSync('redirect')
+    const decodedRedirect = decodeURIComponent(redirect)
+    if (decodedRedirect.startsWith('/pages/')) {
+      router.switchTab(decodedRedirect)
+    } else {
+      router.navigate(decodedRedirect)
+    }
+    return
+  }
+
+  // 默认跳转到首页
+  showToast('登录成功')
+  router.switchTab('/pages/index/index')
 }
 
 // 登录
 const handleLogin = async () => {
   if (loading.value) return
 
-  if (loginType.value === 'phone') {
-    if (!form.phone) {
-      showToast('请输入手机号')
-      return
-    }
-    if (!form.code) {
-      showToast('请输入验证码')
-      return
-    }
-  } else {
-    if (!form.account) {
-      showToast('请输入账号')
-      return
-    }
-    if (!form.password) {
-      showToast('请输入密码')
-      return
-    }
-  }
-
   try {
     loading.value = true
-    // TODO: 调用登录接口
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    const role = uni.getStorageSync('userRole') || 'buyer'
 
-    // 模拟登录成功返回的用户信息
-    const mockUserInfo = {
-      id: 1,
-      username: 'test',
-      nickname: '测试用户',
-      avatar: '/static/avatar/default.png',
-      phone: form.phone || form.account,
-      email: '',
-      role: uni.getStorageSync('userRole') || 'buyer',
-      isVerified: false,
-      createTime: new Date().toISOString(),
-    }
-
-    const userStore = useUserStore()
-    // 更新用户信息和登录状态
-    userStore.login(mockUserInfo)
-
-    // 如果是卖家且未认证，跳转到认证页面
-    if (mockUserInfo.role === 'seller' && !mockUserInfo.isVerified) {
-      router.navigate('/pages-sub/user/verify')
+    // 表单验证
+    if (!form.account) {
+      showToast(`请输入${loginType.value === 'phone' ? '手机号' : '邮箱'}`)
       return
     }
 
-    // 如果有重定向地址，跳转到重定向地址
-    const redirect = uni.getStorageSync('redirect')
-    if (redirect) {
-      uni.removeStorageSync('redirect')
-      const decodedRedirect = decodeURIComponent(redirect)
-      if (decodedRedirect.startsWith('/pages/')) {
-        router.switchTab(decodedRedirect)
-      } else {
-        router.navigate(decodedRedirect)
+    if (loginType.value === 'phone') {
+      // 手机号格式验证
+      if (!validatePhone(form.account)) {
+        showToast('请输入正确的手机号')
+        return
       }
-      return
-    }
 
-    // 默认跳转到首页
-    router.switchTab('/pages/index/index')
-  } catch (error) {
-    showToast('登录失败，请重试')
+      if (loginMethod.value === 'code') {
+        // 验证码登录
+        if (!form.code) {
+          showToast('请输入验证码')
+          return
+        }
+        if (!/^\d{6}$/.test(form.code)) {
+          showToast('请输入正确的验证码')
+          return
+        }
+
+        const { data } = await loginByPhoneCode({
+          phone: form.account,
+          code: form.code,
+          role,
+        })
+        handleLoginSuccess(data)
+      } else {
+        // 密码登录
+        if (!form.password) {
+          showToast('请输入密码')
+          return
+        }
+        if (form.password.length < 6) {
+          showToast('密码不能少于6位')
+          return
+        }
+
+        const { data } = await loginByPhone({
+          phone: form.account,
+          password: md5(form.password),
+          role,
+        })
+        handleLoginSuccess(data)
+      }
+    } else {
+      // 邮箱格式验证
+      if (!validateEmail(form.account)) {
+        showToast('请输入正确的邮箱')
+        return
+      }
+
+      if (loginMethod.value === 'code') {
+        // 验证码登录
+        if (!form.code) {
+          showToast('请输入验证码')
+          return
+        }
+        if (!/^\d{6}$/.test(form.code)) {
+          showToast('请输入正确的验证码')
+          return
+        }
+
+        const { data } = await loginByEmailCode({
+          email: form.account,
+          code: form.code,
+          role,
+        })
+        handleLoginSuccess(data)
+      } else {
+        // 密码登录
+        if (!form.password) {
+          showToast('请输入密码')
+          return
+        }
+        if (form.password.length < 6) {
+          showToast('密码不能少于6位')
+          return
+        }
+
+        const { data } = await loginByEmail({
+          email: form.account,
+          password: md5(form.password),
+          role,
+        })
+        handleLoginSuccess(data)
+      }
+    }
+  } catch (error: any) {
+    showToast(error.message || '登录失败，请重试')
   } finally {
     loading.value = false
   }
@@ -246,7 +420,6 @@ const handleLogin = async () => {
 
 // 第三方登录
 const handleOtherLogin = (type: 'wechat' | 'alipay') => {
-  // TODO: 实现第三方登录
   showToast(`${type}登录开发中`)
 }
 </script>
@@ -283,33 +456,41 @@ const handleOtherLogin = (type: 'wechat' | 'alipay') => {
   }
 
   .form-container {
-    .login-type {
+    .login-type,
+    .login-method {
       display: flex;
       justify-content: center;
       margin-bottom: 40rpx;
 
-      .type-item {
+      .type-item,
+      .method-item {
         position: relative;
         padding: 20rpx 40rpx;
         font-size: 32rpx;
         color: #666;
-        transition: all 0.3s;
+        cursor: pointer;
+        transition: all 0.3s ease;
 
         &.active {
           font-weight: bold;
           color: #018d71;
+        }
 
-          &::after {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            width: 40rpx;
-            height: 4rpx;
-            content: '';
-            background-color: #018d71;
-            border-radius: 2rpx;
-            transform: translateX(-50%);
-          }
+        .active-line {
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          width: 40rpx;
+          height: 4rpx;
+          background-color: #018d71;
+          border-radius: 2rpx;
+          transition: all 0.3s ease;
+          transform: translateX(-50%);
+        }
+
+        &:hover {
+          color: #018d71;
+          opacity: 0.8;
         }
       }
     }

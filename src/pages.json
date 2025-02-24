@@ -153,6 +153,54 @@
           "style": {
             "navigationBarTitleText": "采购记录"
           }
+        },
+        {
+          "path": "profile",
+          "style": {
+            "navigationBarTitleText": "编辑资料"
+          }
+        },
+        {
+          "path": "change-password",
+          "style": {
+            "navigationBarTitleText": "修改密码"
+          }
+        },
+        {
+          "path": "privacy",
+          "style": {
+            "navigationBarTitleText": "隐私政策"
+          }
+        },
+        {
+          "path": "agreement",
+          "style": {
+            "navigationBarTitleText": "用户协议"
+          }
+        },
+        {
+          "path": "bind-phone",
+          "style": {
+            "navigationBarTitleText": "绑定手机号"
+          }
+        },
+        {
+          "path": "bind-email",
+          "style": {
+            "navigationBarTitleText": "绑定邮箱"
+          }
+        },
+        {
+          "path": "change-phone",
+          "style": {
+            "navigationBarTitleText": "更换手机号"
+          }
+        },
+        {
+          "path": "change-email",
+          "style": {
+            "navigationBarTitleText": "更换邮箱"
+          }
         }
       ]
     },

@@ -31,6 +31,14 @@ interface NavigateToOptions {
        "/pages-sub/user/follow-shops" |
        "/pages-sub/user/footprints" |
        "/pages-sub/user/purchase-records" |
+       "/pages-sub/user/profile" |
+       "/pages-sub/user/change-password" |
+       "/pages-sub/user/privacy" |
+       "/pages-sub/user/agreement" |
+       "/pages-sub/user/bind-phone" |
+       "/pages-sub/user/bind-email" |
+       "/pages-sub/user/change-phone" |
+       "/pages-sub/user/change-email" |
        "/pages-sub/goods/detail" |
        "/pages-sub/goods/edit" |
        "/pages-sub/order/list" |

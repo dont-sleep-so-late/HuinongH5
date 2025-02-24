@@ -190,6 +190,7 @@ const navigateToDetail = (id: number) => {
 
 <style lang="scss">
 .container {
+  width: 100%;
   min-height: 100vh;
   padding-bottom: 120rpx;
   background-color: #f8f8f8;

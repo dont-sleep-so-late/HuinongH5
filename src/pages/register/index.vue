@@ -145,6 +145,8 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
+import { registerByEmail, sendEmailCode } from '@/services/auth'
+import { md5 } from '@/utils/crypto'
 
 const router = useRouter()
 const loading = ref(false)
@@ -192,7 +194,18 @@ const handleSendCode = async () => {
 
   try {
     counting.value = true
-    // TODO: 调用发送验证码接口
+
+    if (registerType.value === 'email') {
+      // 调用发送邮箱验证码接口
+      await sendEmailCode({
+        email: form.account,
+        type: 'register',
+      })
+    } else {
+      // TODO: 调用发送手机验证码接口
+    }
+
+    // 开始倒计时
     const timer = setInterval(() => {
       if (count.value > 0) {
         count.value--
@@ -202,9 +215,12 @@ const handleSendCode = async () => {
         count.value = 60
       }
     }, 1000)
-  } catch (error) {
+
+    showToast('验证码已发送')
+  } catch (error: any) {
     counting.value = false
-    showToast('发送失败，请重试')
+    count.value = 60
+    showToast(error.message || '发送失败，请重试')
   }
 }
 
@@ -260,14 +276,37 @@ const handleRegister = async () => {
 
   try {
     loading.value = true
-    // TODO: 调用注册接口
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    showToast('注册成功', { icon: 'success' })
-    setTimeout(() => {
-      router.back()
-    }, 1500)
-  } catch (error) {
-    showToast('注册失败，请重试')
+    const role = uni.getStorageSync('userRole') || 'buyer'
+
+    if (registerType.value === 'email') {
+      // 调用邮箱注册接口
+      const { data } = await registerByEmail({
+        email: form.account,
+        password: md5(form.password),
+        code: form.code,
+        role,
+      })
+
+      // 保存登录信息
+      uni.setStorageSync('token', data.token)
+      showToast('注册成功', { icon: 'success' })
+
+      // 如果是卖家且未认证，跳转到认证页面
+      if (data.userInfo.role === 'seller' && !data.userInfo.isVerified) {
+        router.navigate('/pages-sub/user/verify')
+        return
+      }
+
+      // 跳转到首页
+      setTimeout(() => {
+        router.switchTab('/pages/index/index')
+      }, 1500)
+    } else {
+      // TODO: 实现手机号注册
+      showToast('手机号注册功能开发中')
+    }
+  } catch (error: any) {
+    showToast(error.message || '注册失败，请重试')
   } finally {
     loading.value = false
   }

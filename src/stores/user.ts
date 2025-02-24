@@ -1,17 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
-export interface UserInfo {
-  id: number
-  username: string
-  nickname: string
-  avatar: string
-  phone: string
-  email: string
-  role: 'buyer' | 'seller'
-  isVerified: boolean
-  createTime: string
-}
+import type { UserInfo } from '@/services/user'
 
 export const useUserStore = defineStore(
   'user',
@@ -53,7 +42,6 @@ export const useUserStore = defineStore(
     // 登录
     const login = (info: UserInfo) => {
       setUserInfo(info)
-      setToken('mock-token')
       setLoginState(true)
     }
 
@@ -62,6 +50,11 @@ export const useUserStore = defineStore(
       setUserInfo(null)
       setToken('')
       setLoginState(false)
+    }
+
+    // 更新用户信息
+    const updateUserInfo = (info: UserInfo) => {
+      setUserInfo(info)
     }
 
     // 初始化状态
@@ -83,6 +76,7 @@ export const useUserStore = defineStore(
       setToken,
       login,
       logout,
+      updateUserInfo,
       initState,
     }
   },

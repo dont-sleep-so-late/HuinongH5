@@ -4,7 +4,7 @@
     <view class="user-header">
       <view class="user-info">
         <image
-          :src="userInfo?.avatar || '/static/avatar/default.png'"
+          :src="userInfo?.avatar || '/static/images/Ayo.png'"
           class="avatar"
           mode="aspectFill"
         />
@@ -14,7 +14,7 @@
         </view>
       </view>
       <view class="settings" @click="handleSettings">
-        <text class="iconfont icon-settings"></text>
+        <text class="iconfont icon-settings">设置</text>
       </view>
     </view>
 
@@ -112,23 +112,25 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/utils/toast'
+import { getUserInfo } from '@/services/user'
+import { logout } from '@/services/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo)
-const isSeller = computed(() => userStore.isSeller)
+const isSeller = computed(() => userInfo.value?.role === 'seller')
 
 // 统计数据
 const stats = ref({
-  followGoods: 12,
-  followShops: 28,
-  footprints: 500,
-  purchaseRecords: 11,
+  followGoods: 0,
+  followShops: 0,
+  footprints: 0,
+  purchaseRecords: 0,
 })
 
 // 订单数量
 const orderCounts = ref({
-  reserved: 2,
+  reserved: 0,
   shipped: 0,
   received: 0,
   afterSale: 0,
@@ -159,30 +161,67 @@ const handleFarmAction = (action: 'weeding' | 'watering' | 'fertilizing' | 'harv
 }
 
 // 退出登录
-const handleLogout = () => {
+const handleLogout = async () => {
   uni.showModal({
     title: '提示',
     content: '确定要退出登录吗？',
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        userStore.logout()
+        try {
+          // 调用退出登录接口
+          await logout()
+          // 清除用户信息
+          userStore.logout()
+          // 显示提示
+          showToast('退出成功')
+          // 跳转到登录页
+          router.reLaunch('/pages/login/index')
+        } catch (error: any) {
+          showToast(error.message || '退出失败')
+        }
       }
     },
   })
 }
 
+// 编辑个人信息
+const handleEditProfile = () => {
+  router.navigate('/pages-sub/user/profile')
+}
+
 // 获取用户数据
 const getUserData = async () => {
   try {
-    // TODO: 调用接口获取用户数据
-  } catch (error) {
-    showToast('获取数据失败')
+    const res = await getUserInfo()
+    if (res.data) {
+      // 更新用户信息
+      userStore.updateUserInfo(res.data)
+      // 初始化统计数据
+      stats.value = {
+        followGoods: 0,
+        followShops: 0,
+        footprints: 0,
+        purchaseRecords: 0,
+      }
+      // 初始化订单数量
+      orderCounts.value = {
+        reserved: 0,
+        shipped: 0,
+        received: 0,
+        afterSale: 0,
+      }
+    }
+  } catch (error: any) {
+    showToast(error.message || '获取数据失败')
   }
 }
 
 onMounted(() => {
   if (userStore.isLoggedIn) {
     getUserData()
+  } else {
+    // 未登录跳转到登录页
+    router.navigate('/pages/login/index')
   }
 })
 </script>
