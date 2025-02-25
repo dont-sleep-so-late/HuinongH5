@@ -262,157 +262,83 @@ const handleSendCode = async () => {
   }
 }
 
-// 处理登录成功
-const handleLoginSuccess = (data: { token: string; userInfo: any }) => {
-  // 存储token
-  uni.setStorageSync('token', data.token)
-
-  // 更新用户信息
-  const userInfo = {
-    id: data.userInfo.id,
-    username: data.userInfo.username,
-    nickname: data.userInfo.nickname,
-    avatar: data.userInfo.avatar,
-    phone: data.userInfo.phone,
-    email: data.userInfo.email,
-    role: data.userInfo.role,
-    isVerified: data.userInfo.isVerified,
-    createTime: data.userInfo.createTime,
-  }
-  userStore.login(userInfo)
-
-  // 处理登录后跳转
-  handleLoginRedirect(userInfo)
-}
-
-// 处理登录后跳转
-const handleLoginRedirect = (userInfo: any) => {
-  // 如果是卖家且未认证，跳转到认证页面
-  if (userInfo.role === 'seller' && !userInfo.isVerified) {
-    showToast('请先完成实名认证')
-    router.navigate('/pages-sub/user/verify')
-    return
-  }
-
-  // 如果有重定向地址，跳转到重定向地址
-  const redirect = uni.getStorageSync('redirect')
-  if (redirect) {
-    uni.removeStorageSync('redirect')
-    const decodedRedirect = decodeURIComponent(redirect)
-    if (decodedRedirect.startsWith('/pages/')) {
-      router.switchTab(decodedRedirect)
-    } else {
-      router.navigate(decodedRedirect)
-    }
-    return
-  }
-
-  // 默认跳转到首页
-  showToast('登录成功')
-  router.switchTab('/pages/index/index')
-}
-
-// 登录
+// 登录处理
 const handleLogin = async () => {
   if (loading.value) return
+  if (!form.account) {
+    showToast(`请输入${loginType.value === 'phone' ? '手机号' : '邮箱'}`)
+    return
+  }
 
+  // 验证格式
+  if (loginType.value === 'phone' && !validatePhone(form.account)) {
+    showToast('请输入正确的手机号')
+    return
+  }
+  if (loginType.value === 'email' && !validateEmail(form.account)) {
+    showToast('请输入正确的邮箱')
+    return
+  }
+
+  if (loginMethod.value === 'code' && !form.code) {
+    showToast('请输入验证码')
+    return
+  }
+  if (loginMethod.value === 'password' && !form.password) {
+    showToast('请输入密码')
+    return
+  }
+
+  loading.value = true
   try {
-    loading.value = true
+    let res
     const role = uni.getStorageSync('userRole') || 'buyer'
 
-    // 表单验证
-    if (!form.account) {
-      showToast(`请输入${loginType.value === 'phone' ? '手机号' : '邮箱'}`)
-      return
-    }
-
-    if (loginType.value === 'phone') {
-      // 手机号格式验证
-      if (!validatePhone(form.account)) {
-        showToast('请输入正确的手机号')
-        return
-      }
-
+    if (loginType.value === 'email') {
       if (loginMethod.value === 'code') {
-        // 验证码登录
-        if (!form.code) {
-          showToast('请输入验证码')
-          return
-        }
-        if (!/^\d{6}$/.test(form.code)) {
-          showToast('请输入正确的验证码')
-          return
-        }
-
-        const { data } = await loginByPhoneCode({
-          phone: form.account,
+        res = await loginByEmailCode({
+          email: form.account,
           code: form.code,
           role,
         })
-        handleLoginSuccess(data)
       } else {
-        // 密码登录
-        if (!form.password) {
-          showToast('请输入密码')
-          return
-        }
-        if (form.password.length < 6) {
-          showToast('密码不能少于6位')
-          return
-        }
-
-        const { data } = await loginByPhone({
-          phone: form.account,
+        res = await loginByEmail({
+          email: form.account,
           password: md5(form.password),
           role,
         })
-        handleLoginSuccess(data)
       }
     } else {
-      // 邮箱格式验证
-      if (!validateEmail(form.account)) {
-        showToast('请输入正确的邮箱')
-        return
-      }
-
       if (loginMethod.value === 'code') {
-        // 验证码登录
-        if (!form.code) {
-          showToast('请输入验证码')
-          return
-        }
-        if (!/^\d{6}$/.test(form.code)) {
-          showToast('请输入正确的验证码')
-          return
-        }
-
-        const { data } = await loginByEmailCode({
-          email: form.account,
+        res = await loginByPhoneCode({
+          phone: form.account,
           code: form.code,
           role,
         })
-        handleLoginSuccess(data)
       } else {
-        // 密码登录
-        if (!form.password) {
-          showToast('请输入密码')
-          return
-        }
-        if (form.password.length < 6) {
-          showToast('密码不能少于6位')
-          return
-        }
-
-        const { data } = await loginByEmail({
-          email: form.account,
+        res = await loginByPhone({
+          phone: form.account,
           password: md5(form.password),
           role,
         })
-        handleLoginSuccess(data)
       }
     }
+
+    if (res.data) {
+      userStore.login(res.data.userInfo, res.data.token)
+      showToast('登录成功')
+
+      // 如果是卖家且未认证，跳转到认证页面
+      if (res.data.userInfo.role === 'seller' && !res.data.userInfo.isVerified) {
+        router.navigate('/pages-sub/user/verify')
+        return
+      }
+
+      // 跳转到首页
+      router.reLaunch('/pages/index/index')
+    }
   } catch (error: any) {
-    showToast(error.message || '登录失败，请重试')
+    showToast(error.message || '登录失败')
   } finally {
     loading.value = false
   }

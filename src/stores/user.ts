@@ -1,6 +1,22 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { UserInfo } from '@/services/user'
+import { useRouter } from 'vue-router'
+
+// 用户信息接口
+export interface UserInfo {
+  id: number
+  username: string
+  password?: string
+  nickname: string | null
+  email: string | null
+  phone: string | null
+  avatar: string | null
+  role: 'buyer' | 'seller'
+  status: number
+  createdTime: string
+  updatedTime: string | null
+  lastLoginTime: string | null
+}
 
 export const useUserStore = defineStore(
   'user',
@@ -17,10 +33,8 @@ export const useUserStore = defineStore(
       userInfo.value = info
       if (info) {
         uni.setStorageSync('userRole', info.role)
-        uni.setStorageSync('isVerified', info.isVerified)
       } else {
         uni.removeStorageSync('userRole')
-        uni.removeStorageSync('isVerified')
       }
     }
 
@@ -40,8 +54,9 @@ export const useUserStore = defineStore(
     }
 
     // 登录
-    const login = (info: UserInfo) => {
+    const login = (info: UserInfo, token: string) => {
       setUserInfo(info)
+      setToken(token)
       setLoginState(true)
     }
 
@@ -63,7 +78,6 @@ export const useUserStore = defineStore(
       if (storedToken) {
         setToken(storedToken)
         setLoginState(true)
-        // TODO: 调用接口获取用户信息
       }
     }
 
@@ -71,9 +85,6 @@ export const useUserStore = defineStore(
       userInfo,
       isLoggedIn,
       token,
-      setUserInfo,
-      setLoginState,
-      setToken,
       login,
       logout,
       updateUserInfo,
@@ -81,21 +92,6 @@ export const useUserStore = defineStore(
     }
   },
   {
-    persist: {
-      enabled: true,
-      strategies: [
-        {
-          key: 'user',
-          storage: {
-            setItem(key: string, value: string) {
-              uni.setStorageSync(key, value)
-            },
-            getItem(key: string) {
-              return uni.getStorageSync(key)
-            },
-          },
-        },
-      ],
-    },
+    persist: true,
   },
 )
