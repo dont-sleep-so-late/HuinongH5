@@ -54,6 +54,20 @@ export const useRouter = () => {
     uni.redirectTo({ url })
   }
 
+  // 获取页面参数
+  const getQuery = <T extends Record<string, string>>(): T => {
+    const pages = getCurrentPages()
+    const currentPage = pages[pages.length - 1]
+    return (currentPage as any)?.options || {}
+  }
+
+  // 获取事件通道
+  const getOpenerEventChannel = () => {
+    const pages = getCurrentPages()
+    const currentPage = pages[pages.length - 1]
+    return (currentPage as any)?.getOpenerEventChannel?.()
+  }
+
   return {
     loading,
     navigate,
@@ -62,5 +76,7 @@ export const useRouter = () => {
     back,
     reLaunch,
     redirectTo,
+    getQuery,
+    getOpenerEventChannel,
   }
 }

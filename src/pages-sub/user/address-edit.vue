@@ -5,7 +5,7 @@
       <text class="back" @click="router.back()">
         <text class="iconfont icon-arrow-left"></text>
       </text>
-      <text class="title">{{ isEdit ? '编辑地址' : '新增地址' }}</text>
+      <text class="title">{{ id ? '编辑地址' : '新增地址' }}</text>
     </view>
 
     <!-- 智能识别 -->
@@ -24,180 +24,86 @@
     </view>
 
     <!-- 表单 -->
-    <view class="form">
-      <view class="form-item">
-        <text class="label">收货人</text>
-        <input
-          type="text"
-          v-model="formData.name"
-          placeholder="请输入收货人姓名"
-          placeholder-class="placeholder"
-        />
-      </view>
+    <wd-form :model="form" :rules="rules" ref="formRef">
+      <wd-form-item label="收货人" prop="receiverName">
+        <wd-input v-model="form.receiverName" placeholder="请输入收货人姓名" maxlength="20" />
+      </wd-form-item>
 
-      <view class="form-item">
-        <text class="label">手机号码</text>
-        <input
+      <wd-form-item label="手机号码" prop="receiverPhone">
+        <wd-input
+          v-model="form.receiverPhone"
           type="number"
-          v-model="formData.phone"
           placeholder="请输入手机号码"
-          placeholder-class="placeholder"
           maxlength="11"
         />
-      </view>
+      </wd-form-item>
 
-      <view class="form-item">
-        <text class="label">所在地区</text>
-        <view class="region-picker" @click="showRegionPicker">
-          <text v-if="formData.region">{{ formData.region }}</text>
-          <text class="placeholder" v-else>请选择所在地区</text>
+      <wd-form-item label="所在地区" prop="region">
+        <view class="region" @click="handleRegionClick">
+          <text v-if="form.province" class="region-text">
+            {{ form.province }}{{ form.city }}{{ form.district }}
+          </text>
+          <text v-else class="placeholder">请选择所在地区</text>
           <text class="iconfont icon-arrow-right"></text>
         </view>
-      </view>
+      </wd-form-item>
 
-      <view class="form-item">
-        <text class="label">详细地址</text>
-        <textarea
-          v-model="formData.address"
+      <wd-form-item label="详细地址" prop="detailAddress">
+        <wd-textarea
+          v-model="form.detailAddress"
           placeholder="请输入详细地址，如街道、门牌号等"
-          placeholder-class="placeholder"
-          :maxlength="100"
-          auto-height
+          maxlength="100"
+          show-count
         />
-      </view>
+      </wd-form-item>
 
-      <view class="form-item switch">
-        <text class="label">设为默认地址</text>
-        <switch
-          :checked="formData.isDefault"
-          @change="(e) => (formData.isDefault = e.detail.value)"
-          color="#018d71"
-        />
-      </view>
-    </view>
+      <wd-form-item label="设为默认">
+        <wd-switch v-model="form.isDefault" />
+      </wd-form-item>
+    </wd-form>
 
     <!-- 保存按钮 -->
-    <view class="save-btn" @click="handleSave">保存</view>
+    <view class="bottom-buttons">
+      <wd-button type="info" block @click="router.back()">取消</wd-button>
+      <wd-button type="primary" block @click="handleSave">保存</wd-button>
+    </view>
 
-    <!-- 地区选择器 -->
-    <wd-popup v-model="showRegion" position="bottom">
-      <view class="region-picker-popup">
-        <view class="picker-header">
-          <text>选择地区</text>
-          <text class="close" @click="showRegion = false">×</text>
-        </view>
-        <picker-view
-          class="picker-view"
-          :value="regionValue"
-          @change="onRegionChange"
-          :indicator-style="'height: 88rpx;'"
-        >
-          <picker-view-column>
-            <view class="picker-item" v-for="(item, index) in provinces" :key="index">
-              {{ item }}
-            </view>
-          </picker-view-column>
-          <picker-view-column>
-            <view class="picker-item" v-for="(item, index) in cities" :key="index">
-              {{ item }}
-            </view>
-          </picker-view-column>
-          <picker-view-column>
-            <view class="picker-item" v-for="(item, index) in districts" :key="index">
-              {{ item }}
-            </view>
-          </picker-view-column>
-        </picker-view>
-        <view class="picker-footer">
-          <button class="confirm-btn" @click="confirmRegion">确定</button>
-        </view>
-      </view>
-    </wd-popup>
+    <!-- 底部安全区域 -->
+    <view class="safe-area-bottom"></view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, getCurrentInstance } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
-import { showToast } from '@/utils/toast'
+import type { AddressFormData } from '@/types/address'
+import { addressRules } from '@/types/address'
+import { addressService } from '@/services/address'
 
 const router = useRouter()
-const { proxy } = getCurrentInstance()
-const route = {
-  query: proxy?.$page?.options || {},
-}
 
-// 编辑模式
-const isEdit = ref(false)
-const addressId = ref<number | null>(null)
+// 表单ref
+const formRef = ref()
+
+// 地址ID
+const id = ref<number>()
 
 // 表单数据
-const formData = ref({
-  name: '',
-  phone: '',
-  region: '',
-  address: '',
+const form = ref<AddressFormData>({
+  receiverName: '',
+  receiverPhone: '',
+  province: '',
+  city: '',
+  district: '',
+  detailAddress: '',
   isDefault: false,
 })
 
+// 表单校验规则
+const rules = addressRules
+
 // 智能识别文本
 const parseText = ref('')
-
-// 地区选择器
-const showRegion = ref(false)
-const regionValue = ref([0, 0, 0])
-const provinces = ref(['广东省', '浙江省', '江苏省'])
-const cities = computed(() => {
-  const cityMap: Record<string, string[]> = {
-    广东省: ['深圳市', '广州市', '东莞市'],
-    浙江省: ['杭州市', '宁波市', '温州市'],
-    江苏省: ['南京市', '苏州市', '无锡市'],
-  }
-  return cityMap[provinces.value[regionValue.value[0]]] || []
-})
-const districts = computed(() => {
-  const districtMap: Record<string, Record<string, string[]>> = {
-    广东省: {
-      深圳市: ['南山区', '福田区', '罗湖区'],
-      广州市: ['天河区', '越秀区', '海珠区'],
-      东莞市: ['松山湖', '长安镇', '虎门镇'],
-    },
-  }
-  return (
-    districtMap[provinces.value[regionValue.value[0]]]?.[cities.value[regionValue.value[1]]] || []
-  )
-})
-
-// 获取路由参数
-const onLoad = (options: Record<string, string>) => {
-  const id = options.id
-  if (id) {
-    isEdit.value = true
-    addressId.value = Number(id)
-    // TODO: 获取地址详情
-    const address = {
-      id: 1,
-      name: '张三',
-      phone: '13800138000',
-      province: '广东省',
-      city: '深圳市',
-      district: '南山区',
-      address: '科技园南路88号',
-      isDefault: true,
-    }
-    formData.value = {
-      name: address.name,
-      phone: address.phone,
-      region: `${address.province}${address.city}${address.district}`,
-      address: address.address,
-      isDefault: address.isDefault,
-    }
-  }
-}
-
-defineExpose({
-  onLoad,
-})
 
 // 智能识别
 const handleParseInput = () => {
@@ -208,27 +114,30 @@ const handleParseInput = () => {
 
 const parseAddress = () => {
   if (!parseText.value) {
-    showToast('请输入或粘贴地址信息')
+    uni.showToast({
+      title: '请输入或粘贴地址信息',
+      icon: 'none',
+    })
     return
   }
 
   // 解析姓名（2-4个汉字）
   const nameMatch = parseText.value.match(/[\u4e00-\u9fa5]{2,4}/)
   if (nameMatch) {
-    formData.value.name = nameMatch[0]
+    form.value.receiverName = nameMatch[0]
   }
 
   // 解析手机号
   const phoneMatch = parseText.value.match(/1[3-9]\d{9}/)
   if (phoneMatch) {
-    formData.value.phone = phoneMatch[0]
+    form.value.receiverPhone = phoneMatch[0]
   }
 
   // 解析地址
   // 移除姓名和手机号
   let addressText = parseText.value
-    .replace(formData.value.name, '')
-    .replace(formData.value.phone, '')
+    .replace(form.value.receiverName, '')
+    .replace(form.value.receiverPhone, '')
     .trim()
 
   // 尝试匹配省市区
@@ -238,7 +147,9 @@ const parseAddress = () => {
   if (regionMatch) {
     const [, province, city, district] = regionMatch
     if (province && city && district) {
-      formData.value.region = province + city + district
+      form.value.province = province
+      form.value.city = city
+      form.value.district = district
       // 剩余部分作为详细地址
       addressText = addressText.replace(province, '').replace(city, '').replace(district, '').trim()
     }
@@ -246,64 +157,86 @@ const parseAddress = () => {
 
   // 设置详细地址
   if (addressText) {
-    formData.value.address = addressText
+    form.value.detailAddress = addressText
   }
 
   // 清空识别文本
   parseText.value = ''
 }
 
-// 地区选择
-const showRegionPicker = () => {
-  showRegion.value = true
+// 选择地区
+const handleRegionClick = () => {
+  uni.navigateTo({
+    url: '/pages-sub/common/region-picker',
+    events: {
+      // 选择地区回调
+      regionSelected: (region: { province: string; city: string; district: string }) => {
+        form.value.province = region.province
+        form.value.city = region.city
+        form.value.district = region.district
+      },
+    },
+  })
 }
 
-const onRegionChange = (e: any) => {
-  regionValue.value = e.detail.value
-}
-
-const confirmRegion = () => {
-  const province = provinces.value[regionValue.value[0]]
-  const city = cities.value[regionValue.value[1]]
-  const district = districts.value[regionValue.value[2]]
-  formData.value.region = `${province}${city}${district}`
-  showRegion.value = false
+// 获取地址详情
+const loadAddressDetail = async () => {
+  try {
+    const { data } = await addressService.getDetail(id.value!)
+    Object.assign(form.value, {
+      receiverName: data.receiverName,
+      receiverPhone: data.receiverPhone,
+      province: data.province,
+      city: data.city,
+      district: data.district,
+      detailAddress: data.detailAddress,
+      isDefault: data.isDefault,
+    })
+  } catch (error: any) {
+    uni.showToast({
+      title: error.message || '获取地址详情失败',
+      icon: 'none',
+    })
+  }
 }
 
 // 保存地址
-const handleSave = async () => {
-  // 表单验证
-  if (!formData.value.name) {
-    showToast('请输入收货人姓名')
-    return
-  }
-  if (!formData.value.phone) {
-    showToast('请输入手机号码')
-    return
-  }
-  if (!/^1[3-9]\d{9}$/.test(formData.value.phone)) {
-    showToast('手机号码格式不正确')
-    return
-  }
-  if (!formData.value.region) {
-    showToast('请选择所在地区')
-    return
-  }
-  if (!formData.value.address) {
-    showToast('请输入详细地址')
-    return
-  }
+const handleSave = () => {
+  formRef.value?.validate(async (valid: boolean) => {
+    if (!valid) return
 
-  try {
-    // TODO: 调用保存地址接口
-    showToast('保存成功', { icon: 'success' })
-    setTimeout(() => {
-      router.back()
-    }, 1500)
-  } catch (error) {
-    showToast('保存失败')
-  }
+    try {
+      if (id.value) {
+        await addressService.update(id.value, form.value)
+      } else {
+        await addressService.create(form.value)
+      }
+
+      uni.showToast({
+        title: '保存成功',
+        icon: 'success',
+      })
+
+      setTimeout(() => {
+        router.back()
+      }, 1500)
+    } catch (error: any) {
+      uni.showToast({
+        title: error.message || '保存失败',
+        icon: 'none',
+      })
+    }
+  })
 }
+
+onMounted(() => {
+  // 获取路由参数
+  const query = router.getQuery()
+  if (query.id) {
+    id.value = Number(query.id)
+    loadAddressDetail()
+  }
+})
 </script>
 
 <style lang="scss">
@@ -327,21 +260,17 @@ const handleSave = async () => {
 
   .back {
     padding: 20rpx;
-    margin: -20rpx;
-    margin-right: 0;
-
-    .iconfont {
-      font-size: 36rpx;
-      color: #333;
-    }
+    margin-left: -20rpx;
+    font-size: 36rpx;
+    color: #333;
   }
 
   .title {
     flex: 1;
-    margin-left: 32rpx;
     font-size: 32rpx;
     font-weight: bold;
     color: #333;
+    text-align: center;
   }
 }
 
@@ -356,7 +285,7 @@ const handleSave = async () => {
     height: 160rpx;
     padding: 20rpx;
     font-size: 28rpx;
-    color: #333;
+    line-height: 1.5;
     background-color: #f8f8f8;
     border-radius: 8rpx;
   }
@@ -365,7 +294,7 @@ const handleSave = async () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20rpx;
+    height: 80rpx;
     margin-top: 20rpx;
     font-size: 28rpx;
     color: #018d71;
@@ -379,128 +308,43 @@ const handleSave = async () => {
   }
 }
 
-.form {
-  padding: 0 20rpx;
-  margin: 20rpx;
+.region {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 88rpx;
+  padding: 0 32rpx;
+  font-size: 28rpx;
   background-color: #fff;
-  border-radius: 16rpx;
+  border-radius: 8rpx;
 
-  .form-item {
-    display: flex;
-    align-items: flex-start;
-    padding: 30rpx 0;
-    border-bottom: 1rpx solid #f5f5f5;
+  .region-text {
+    color: #333;
+  }
 
-    &:last-child {
-      border-bottom: none;
-    }
+  .placeholder {
+    color: #999;
+  }
 
-    .label {
-      width: 160rpx;
-      font-size: 28rpx;
-      color: #333;
-    }
-
-    input,
-    textarea {
-      flex: 1;
-      font-size: 28rpx;
-      color: #333;
-
-      &.placeholder {
-        color: #999;
-      }
-    }
-
-    textarea {
-      height: 120rpx;
-    }
-
-    .region-picker {
-      display: flex;
-      flex: 1;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 28rpx;
-      color: #333;
-
-      .placeholder {
-        color: #999;
-      }
-
-      .iconfont {
-        margin-left: 8rpx;
-        font-size: 32rpx;
-        color: #999;
-      }
-    }
-
-    &.switch {
-      justify-content: space-between;
-    }
+  .iconfont {
+    font-size: 32rpx;
+    color: #999;
   }
 }
 
-.save-btn {
+.bottom-buttons {
   position: fixed;
   right: 0;
   bottom: env(safe-area-inset-bottom);
   left: 0;
-  height: 100rpx;
-  font-size: 32rpx;
-  line-height: 100rpx;
-  color: #fff;
-  text-align: center;
-  background-color: #018d71;
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx;
+  background-color: #fff;
+  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
 }
 
-.region-picker-popup {
-  .picker-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 88rpx;
-    padding: 0 32rpx;
-    background-color: #f8f8f8;
-
-    text {
-      font-size: 32rpx;
-      color: #333;
-    }
-
-    .close {
-      padding: 20rpx;
-      margin: -20rpx;
-      font-size: 40rpx;
-      color: #999;
-    }
-  }
-
-  .picker-view {
-    height: 480rpx;
-    background-color: #fff;
-
-    .picker-item {
-      font-size: 28rpx;
-      line-height: 88rpx;
-      color: #333;
-      text-align: center;
-    }
-  }
-
-  .picker-footer {
-    padding: 20rpx 32rpx;
-    background-color: #fff;
-
-    .confirm-btn {
-      height: 88rpx;
-      font-size: 32rpx;
-      line-height: 88rpx;
-      color: #fff;
-      text-align: center;
-      background-color: #018d71;
-      border-radius: 44rpx;
-    }
-  }
+.safe-area-bottom {
+  height: env(safe-area-inset-bottom);
 }
 </style>

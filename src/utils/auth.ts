@@ -1,18 +1,24 @@
 const TOKEN_KEY = 'token'
 const USER_INFO_KEY = 'userInfo'
 
-// 获取token
-export const getToken = (): string => {
-  return uni.getStorageSync(TOKEN_KEY)
+/**
+ * 获取token
+ */
+export function getToken(): string {
+  return uni.getStorageSync(TOKEN_KEY) || ''
 }
 
-// 设置token
-export const setToken = (token: string) => {
+/**
+ * 设置token
+ */
+export function setToken(token: string) {
   uni.setStorageSync(TOKEN_KEY, token)
 }
 
-// 移除token
-export const removeToken = () => {
+/**
+ * 移除token
+ */
+export function removeToken() {
   uni.removeStorageSync(TOKEN_KEY)
 }
 
@@ -37,8 +43,10 @@ export const clearLoginInfo = () => {
   removeUserInfo()
 }
 
-// 检查是否登录
-export const checkLogin = (): boolean => {
+/**
+ * 是否已登录
+ */
+export function isLoggedIn(): boolean {
   return !!getToken()
 }
 

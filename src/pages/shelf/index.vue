@@ -2,7 +2,7 @@
   <view class="shelf-container">
     <!-- 搜索栏 -->
     <view class="search-bar">
-      <wd-search v-model="searchParams.keyword" placeholder="搜索商品名称" @search="handleSearch" />
+      <wd-search v-model="searchParams.name" placeholder="搜索商品名称" @search="handleSearch" />
     </view>
 
     <!-- 顶部操作栏 -->
@@ -50,16 +50,19 @@
       <template #default>
         <view class="goods-list">
           <view v-for="goods in goodsList" :key="goods.id" class="goods-item">
-            <image :src="goods.cover" mode="aspectFill" class="goods-image" />
+            <image :src="goods.mainImage" mode="aspectFill" class="goods-image" />
             <view class="goods-info">
               <view class="goods-name">{{ goods.name }}</view>
               <view class="goods-price">¥{{ goods.price }}</view>
               <view class="goods-stats">
-                <text>库存: {{ goods.stock }}{{ goods.unit }}</text>
-                <text>销量: {{ goods.sales }}</text>
+                <text>库存: {{ goods.stock }}{{ goods.unit || '件' }}</text>
+                <text>销量: {{ goods.sales || 0 }}</text>
               </view>
-              <view class="goods-status" :class="goods.status">
-                {{ goods.status === 'on' ? '已上架' : '已下架' }}
+              <view
+                class="goods-status"
+                :class="{ on: goods.status === 1, off: goods.status === 0 }"
+              >
+                {{ goods.status === 1 ? '已上架' : '已下架' }}
               </view>
             </view>
             <view class="goods-actions">
@@ -67,11 +70,11 @@
                 编辑
               </wd-button>
               <wd-button
-                :type="goods.status === 'on' ? 'danger' : 'success'"
+                :type="goods.status === 1 ? 'danger' : 'success'"
                 size="small"
                 @click="handleToggleStatus(goods)"
               >
-                {{ goods.status === 'on' ? '下架' : '上架' }}
+                {{ goods.status === 1 ? '下架' : '上架' }}
               </wd-button>
               <wd-button type="danger" size="small" @click="handleDeleteGoods(goods)">
                 删除
@@ -98,19 +101,19 @@ import type { GoodsItem, GoodsStatus, GoodsQueryParams } from '@/types/goods'
 
 // 搜索参数
 const searchParams = ref<GoodsQueryParams>({
-  pageNo: 1,
+  pageNum: 1,
   pageSize: 10,
-  keyword: '',
+  name: '',
   status: undefined,
+  categoryId: undefined,
   sort: undefined,
-  order: undefined,
 })
 
 // 状态按钮配置
 const statusButtons = [
   { text: '全部', value: undefined },
-  { text: '已上架', value: 'on' as GoodsStatus },
-  { text: '已下架', value: 'off' as GoodsStatus },
+  { text: '已上架', value: 1 as GoodsStatus },
+  { text: '已下架', value: 0 as GoodsStatus },
 ]
 
 // 排序选项
@@ -124,11 +127,7 @@ const sortOptions = [
 
 // 当前排序
 const currentSort = computed(() => {
-  return (
-    sortOptions.find(
-      (item) => item.value === `${searchParams.value.sort || ''}_${searchParams.value.order || ''}`,
-    ) || sortOptions[0]
-  )
+  return sortOptions.find((item) => item.value === searchParams.value.sort) || sortOptions[0]
 })
 
 // 分页列表
@@ -153,21 +152,19 @@ const handleFilterStatus = (status?: GoodsStatus) => {
 
 // 排序处理
 const handleSort = (sort: (typeof sortOptions)[0]) => {
-  const [field, order] = sort.value.split('_')
-  searchParams.value.sort = field || undefined
-  searchParams.value.order = (order as 'asc' | 'desc') || undefined
+  searchParams.value.sort = sort.value || undefined
   reloadList()
 }
 
 // 查询商品列表
-const queryGoodsList = async (pageNo: number, pageSize: number) => {
+const queryGoodsList = async (pageNum: number, pageSize: number) => {
   try {
     const params = {
       ...searchParams.value,
-      pageNo,
+      pageNum,
       pageSize,
     }
-    const { data } = await uni.$api.goods.getSellerGoods(params)
+    const { data } = await uni.$api.seller.products.getList(params)
     return {
       list: data.list,
       total: data.total,
@@ -248,21 +245,18 @@ const handleConfirm = async () => {
 
 // 切换商品状态
 const handleToggleStatus = (goods: GoodsItem) => {
-  const newStatus = goods.status === 'on' ? 'off' : 'on'
-  const action = newStatus === 'on' ? '上架' : '下架'
+  const newStatus = goods.status === 1 ? 0 : 1
+  const action = newStatus === 1 ? '上架' : '下架'
 
   showConfirm(`${action}商品`, `确定要${action}商品【${goods.name}】吗？`, async () => {
-    await uni.$api.goods.updateGoodsStatus({
-      id: goods.id,
-      status: newStatus,
-    })
+    await uni.$api.seller.products.updateStatus(goods.id, newStatus)
   })
 }
 
 // 删除商品
 const handleDeleteGoods = (goods: GoodsItem) => {
   showConfirm('删除商品', `确定要删除商品【${goods.name}】吗？`, async () => {
-    await uni.$api.goods.deleteGoods(goods.id)
+    await uni.$api.seller.products.delete(goods.id)
   })
 }
 </script>

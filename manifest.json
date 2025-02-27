@@ -1,0 +1,18 @@
+{
+  "h5": {
+    "title": "惠农 H5",
+    "router": {
+      "mode": "history",
+      "base": "/"
+    },
+    "sdkConfigs": {
+      "maps": {
+        "amap": {
+          "key": "2198e11db9d26efd65e305e5109c2385",
+          "securityJsCode": "ff4310e84e4987bf72b0c2cbb93d662d",
+          "serviceHost": ""
+        }
+      }
+    }
+  }
+}

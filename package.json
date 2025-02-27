@@ -80,6 +80,7 @@
     "bin-wrapper": "npm:bin-wrapper-china"
   },
   "dependencies": {
+    "@amap/amap-jsapi-loader": "^1.0.1",
     "@dcloudio/uni-app": "3.0.0-4020920240930001",
     "@dcloudio/uni-app-harmony": "3.0.0-4020920240930001",
     "@dcloudio/uni-app-plus": "3.0.0-4020920240930001",

@@ -39,34 +39,69 @@
     </view>
 
     <!-- 我的订单 -->
-    <view class="section order-section">
-      <view class="section-header">
-        <text class="title">我的订单</text>
-        <view class="more" @click="navigateTo('/pages-sub/order/list')">
+    <view class="menu-section">
+      <view class="menu-header">
+        <text class="menu-title">我的订单</text>
+        <view class="more" @click="navigateTo('/pages-sub/order/list/index')">
           <text>全部订单</text>
-          <text class="iconfont icon-arrow-right"></text>
+          <wd-icon name="arrow-right" size="28" color="#999" />
         </view>
       </view>
-      <view class="order-types">
-        <view class="type-item" @click="navigateTo('/pages-sub/order/list?type=reserved')">
-          <view class="badge" v-if="orderCounts.reserved > 0">{{ orderCounts.reserved }}</view>
-          <text class="iconfont icon-reserved"></text>
-          <text>已预定</text>
+      <view class="menu-grid">
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/list/index?status=pending')">
+          <wd-icon name="pay" size="48" color="#018d71" />
+          <text>待付款</text>
+          <view class="badge" v-if="orderCounts.pending > 0">
+            {{ formatBadge(orderCounts.pending) }}
+          </view>
         </view>
-        <view class="type-item" @click="navigateTo('/pages-sub/order/list?type=shipped')">
-          <view class="badge" v-if="orderCounts.shipped > 0">{{ orderCounts.shipped }}</view>
-          <text class="iconfont icon-shipped"></text>
-          <text>已发货</text>
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/list/index?status=paid')">
+          <wd-icon name="cart" size="48" color="#018d71" />
+          <text>待发货</text>
+          <view class="badge" v-if="orderCounts.paid > 0">{{ formatBadge(orderCounts.paid) }}</view>
         </view>
-        <view class="type-item" @click="navigateTo('/pages-sub/order/list?type=received')">
-          <view class="badge" v-if="orderCounts.received > 0">{{ orderCounts.received }}</view>
-          <text class="iconfont icon-received"></text>
-          <text>已提货</text>
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/list/index?status=shipped')">
+          <wd-icon name="logistics" size="48" color="#018d71" />
+          <text>待收货</text>
+          <view class="badge" v-if="orderCounts.shipped > 0">
+            {{ formatBadge(orderCounts.shipped) }}
+          </view>
         </view>
-        <view class="type-item" @click="navigateTo('/pages-sub/order/list?type=afterSale')">
-          <view class="badge" v-if="orderCounts.afterSale > 0">{{ orderCounts.afterSale }}</view>
-          <text class="iconfont icon-after-sale"></text>
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/list/index?status=received')">
+          <wd-icon name="comment" size="48" color="#018d71" />
+          <text>待评价</text>
+          <view class="badge" v-if="orderCounts.received > 0">
+            {{ formatBadge(orderCounts.received) }}
+          </view>
+        </view>
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/after-sale/list/index')">
+          <wd-icon name="service" size="48" color="#018d71" />
           <text>售后</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 我的优惠 -->
+    <view class="menu-section">
+      <view class="menu-header">
+        <text class="menu-title">我的优惠</text>
+      </view>
+      <view class="menu-grid">
+        <view class="menu-item" @click="navigateTo('/pages-sub/user/my-coupon/index')">
+          <wd-icon name="coupon" size="48" color="#ff5000" />
+          <text>优惠券</text>
+        </view>
+        <view class="menu-item" @click="navigateTo('/pages-sub/user/points/index')">
+          <wd-icon name="success" size="48" color="#ff5000" />
+          <text>积分</text>
+        </view>
+        <view class="menu-item" @click="navigateTo('/pages-sub/marketing/group-buy/index')">
+          <wd-icon name="friends" size="48" color="#ff5000" />
+          <text>拼团</text>
+        </view>
+        <view class="menu-item" @click="navigateTo('/pages-sub/marketing/seckill/index')">
+          <wd-icon name="clock" size="48" color="#ff5000" />
+          <text>秒杀</text>
         </view>
       </view>
     </view>
@@ -130,10 +165,10 @@ const stats = ref({
 
 // 订单数量
 const orderCounts = ref({
-  reserved: 0,
+  pending: 0,
+  paid: 0,
   shipped: 0,
   received: 0,
-  afterSale: 0,
 })
 
 // 页面跳转
@@ -143,6 +178,11 @@ const navigateTo = (url: string) => {
     return
   }
   router.navigate(url)
+}
+
+// 格式化徽章数字
+const formatBadge = (count: number): string => {
+  return count > 99 ? '99+' : count.toString()
 }
 
 // 设置
@@ -205,10 +245,10 @@ const getUserData = async () => {
       }
       // 初始化订单数量
       orderCounts.value = {
-        reserved: 0,
+        pending: 0,
+        paid: 0,
         shipped: 0,
         received: 0,
-        afterSale: 0,
       }
     }
   } catch (error: any) {
@@ -350,44 +390,6 @@ onMounted(() => {
   }
 }
 
-.order-types {
-  display: flex;
-  justify-content: space-around;
-
-  .type-item {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-
-    .badge {
-      position: absolute;
-      top: -16rpx;
-      right: -16rpx;
-      min-width: 32rpx;
-      height: 32rpx;
-      padding: 0 8rpx;
-      font-size: 20rpx;
-      line-height: 32rpx;
-      color: #fff;
-      text-align: center;
-      background-color: #ff6b6b;
-      border-radius: 16rpx;
-    }
-
-    .iconfont {
-      margin-bottom: 12rpx;
-      font-size: 48rpx;
-      color: #333;
-    }
-
-    text {
-      font-size: 24rpx;
-      color: #666;
-    }
-  }
-}
-
 .farm-actions {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -413,5 +415,74 @@ onMounted(() => {
 
 .logout-section {
   padding: 40rpx 0;
+}
+
+.menu-section {
+  padding: 30rpx;
+  margin: 20rpx;
+  background-color: #fff;
+  border-radius: 16rpx;
+
+  .menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30rpx;
+
+    .menu-title {
+      font-size: 32rpx;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .more {
+      display: flex;
+      align-items: center;
+      font-size: 26rpx;
+      color: #999;
+
+      .wd-icon {
+        margin-left: 4rpx;
+      }
+    }
+  }
+
+  .menu-grid {
+    display: flex;
+    justify-content: space-around;
+
+    .menu-item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+
+      .badge {
+        position: absolute;
+        top: -16rpx;
+        right: -16rpx;
+        min-width: 32rpx;
+        height: 32rpx;
+        padding: 0 8rpx;
+        font-size: 20rpx;
+        line-height: 32rpx;
+        color: #fff;
+        text-align: center;
+        background-color: #ff6b6b;
+        border-radius: 16rpx;
+      }
+
+      .wd-icon {
+        margin-bottom: 12rpx;
+        font-size: 48rpx;
+        color: #333;
+      }
+
+      text {
+        font-size: 24rpx;
+        color: #666;
+      }
+    }
+  }
 }
 </style>

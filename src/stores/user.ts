@@ -62,9 +62,22 @@ export const useUserStore = defineStore(
 
     // 登出
     const logout = () => {
+      // 清空状态
       setUserInfo(null)
       setToken('')
       setLoginState(false)
+
+      // 清空本地存储
+      uni.removeStorageSync('token')
+      uni.removeStorageSync('userRole')
+      uni.removeStorageSync('userInfo')
+
+      // 清空其他可能存在的用户相关缓存
+      try {
+        uni.clearStorageSync()
+      } catch (e) {
+        console.error('清除缓存失败:', e)
+      }
     }
 
     // 更新用户信息

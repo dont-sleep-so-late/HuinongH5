@@ -28,55 +28,34 @@
 
     <!-- 商品列表 -->
     <view class="goods-list">
-      <view v-for="shop in shopList" :key="shop.id" class="shop-group">
-        <!-- 店铺信息 -->
-        <view class="shop-header">
-          <image :src="shop.avatar" mode="aspectFill" class="shop-avatar" />
-          <text class="shop-name">{{ shop.name }}</text>
-        </view>
-
-        <!-- 商品列表 -->
-        <view class="goods-items">
-          <view v-for="goods in shop.goodsList" :key="goods.id" class="goods-item">
-            <image :src="goods.image" mode="aspectFill" class="goods-image" />
-            <view class="goods-info">
-              <text class="goods-name">{{ goods.name }}</text>
-              <text class="goods-spec">{{ goods.spec }}</text>
-              <view class="goods-bottom">
-                <text class="goods-price">¥{{ goods.price }}</text>
-                <text class="goods-quantity">x{{ goods.quantity }}</text>
-              </view>
+      <view class="goods-items">
+        <view v-for="item in orderPreview.items" :key="item.productId" class="goods-item">
+          <image :src="item.productImage" mode="aspectFill" class="goods-image" />
+          <view class="goods-info">
+            <text class="goods-name">{{ item.productName }}</text>
+            <text class="goods-spec">{{ item.specName }}</text>
+            <view class="goods-bottom">
+              <text class="goods-price">¥{{ item.price }}</text>
+              <text class="goods-quantity">x{{ item.quantity }}</text>
             </view>
           </view>
         </view>
+      </view>
 
-        <!-- 店铺优惠券 -->
-        <view class="shop-coupon" @click="selectCoupon(shop)">
-          <text class="label">优惠券</text>
-          <view class="coupon-info">
-            <text v-if="shop.selectedCoupon" class="selected">
-              已选择{{ shop.selectedCoupon.name }}
-            </text>
-            <text v-else class="none">暂无可用</text>
-            <text class="iconfont icon-arrow-right"></text>
-          </view>
+      <!-- 配送方式 -->
+      <view class="delivery">
+        <text class="label">配送方式</text>
+        <view class="delivery-info">
+          <text class="method">快递配送</text>
+          <text class="fee">¥{{ orderPreview.freightAmount }}</text>
         </view>
+      </view>
 
-        <!-- 配送方式 -->
-        <view class="delivery">
-          <text class="label">配送方式</text>
-          <view class="delivery-info">
-            <text class="method">快递配送</text>
-            <text class="fee">¥{{ shop.deliveryFee }}</text>
-          </view>
-        </view>
-
-        <!-- 店铺小计 -->
-        <view class="shop-total">
-          <text>共{{ shop.totalQuantity }}件</text>
-          <text>小计：</text>
-          <text class="price">¥{{ shop.totalPrice }}</text>
-        </view>
+      <!-- 商品总计 -->
+      <view class="goods-total">
+        <text>共{{ orderPreview.totalQuantity }}件</text>
+        <text>小计：</text>
+        <text class="price">¥{{ orderPreview.totalAmount }}</text>
       </view>
     </view>
 
@@ -113,7 +92,7 @@
     <view class="bottom-bar">
       <view class="price-info">
         <text>实付款：</text>
-        <text class="total-price">¥{{ totalPrice }}</text>
+        <text class="total-price">¥{{ orderPreview.payAmount }}</text>
       </view>
       <view class="submit-btn" @click="submitOrder">提交订单</view>
     </view>
@@ -127,6 +106,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
+import { createBuyNowOrder, createCartOrder } from '@/services/order'
+import type { OrderPreview } from '@/services/order'
 
 const router = useRouter()
 
@@ -197,6 +178,19 @@ const paymentMethods = [
 ]
 const selectedPayment = ref(1)
 
+// 订单预览数据
+const orderPreview = ref<OrderPreview>({
+  items: [],
+  totalQuantity: 0,
+  totalAmount: 0,
+  freightAmount: 0,
+  payAmount: 0,
+})
+
+// 订单类型和参数
+const orderType = ref<'buy_now' | 'cart'>('buy_now')
+const orderParams = ref<any>(null)
+
 // 订单备注
 const remark = ref('')
 
@@ -213,6 +207,20 @@ const totalPrice = computed(() => {
 
 // 监听地址选择
 onMounted(() => {
+  // 获取本地存储的订单预览数据
+  const preview = uni.getStorageSync('order_preview')
+  if (preview) {
+    orderType.value = preview.type
+    orderPreview.value = preview.data
+    orderParams.value = preview.params
+  } else {
+    showToast('订单信息不存在')
+    setTimeout(() => {
+      router.back()
+    }, 1500)
+  }
+
+  // 监听地址选择
   uni.$on('addressSelected', (selectedAddress: any) => {
     address.value = selectedAddress
   })
@@ -235,19 +243,35 @@ const submitOrder = async () => {
     return
   }
 
-  if (!selectedPayment.value) {
-    showToast('请选择支付方式')
-    return
-  }
-
   try {
-    // TODO: 调用创建订单接口
+    let orderId: number
+    if (orderType.value === 'buy_now') {
+      // 立即购买下单
+      const res = await createBuyNowOrder({
+        ...orderParams.value,
+        addressId: address.value.id,
+        remark: remark.value || '',
+      })
+      orderId = res.data
+    } else {
+      // 购物车下单
+      const res = await createCartOrder({
+        ...orderParams.value,
+        addressId: address.value.id,
+        remark: remark.value || '',
+      })
+      orderId = res.data
+    }
+
     showToast('订单提交成功', { icon: 'success' })
     setTimeout(() => {
-      router.navigate('/pages/order/list')
+      // 清除订单预览数据
+      uni.removeStorageSync('order_preview')
+      // 跳转到订单详情页
+      router.navigate('/pages-sub/order/detail', { id: orderId })
     }, 1500)
-  } catch (error) {
-    showToast('订单提交失败')
+  } catch (error: any) {
+    showToast(error.message || '订单提交失败')
   }
 }
 </script>
@@ -273,38 +297,33 @@ const submitOrder = async () => {
 
   .back {
     padding: 20rpx;
-    margin: -20rpx;
-    margin-right: 0;
-
-    .iconfont {
-      font-size: 36rpx;
-      color: #333;
-    }
+    margin-left: -20rpx;
+    font-size: 36rpx;
+    color: #333;
   }
 
   .title {
     flex: 1;
-    margin-left: 32rpx;
     font-size: 32rpx;
     font-weight: bold;
     color: #333;
+    text-align: center;
   }
 }
 
 .address-card {
   display: flex;
   align-items: center;
-  padding: 30rpx;
+  padding: 32rpx;
   margin: 20rpx;
   background-color: #fff;
   border-radius: 16rpx;
 
   .address-info {
     flex: 1;
-    margin-right: 20rpx;
 
     .user-info {
-      margin-bottom: 16rpx;
+      margin-bottom: 12rpx;
 
       .name {
         margin-right: 20rpx;
@@ -321,30 +340,22 @@ const submitOrder = async () => {
 
     .address {
       font-size: 28rpx;
-      line-height: 1.5;
       color: #333;
     }
   }
 
   .no-address {
-    display: flex;
     flex: 1;
-    align-items: center;
-    margin-right: 20rpx;
+    font-size: 28rpx;
+    color: #666;
 
     .iconfont {
-      margin-right: 8rpx;
+      margin-right: 12rpx;
       font-size: 32rpx;
-      color: #999;
-    }
-
-    text {
-      font-size: 28rpx;
-      color: #999;
     }
   }
 
-  .iconfont {
+  .icon-arrow-right {
     font-size: 32rpx;
     color: #999;
   }
@@ -352,144 +363,104 @@ const submitOrder = async () => {
 
 .goods-list {
   margin: 20rpx;
+  background-color: #fff;
+  border-radius: 16rpx;
 
-  .shop-group {
-    margin-bottom: 20rpx;
-    overflow: hidden;
-    background-color: #fff;
-    border-radius: 16rpx;
-
-    .shop-header {
+  .goods-items {
+    .goods-item {
       display: flex;
-      align-items: center;
       padding: 20rpx;
       border-bottom: 1rpx solid #f5f5f5;
 
-      .shop-avatar {
-        width: 48rpx;
-        height: 48rpx;
-        margin-right: 16rpx;
-        border-radius: 8rpx;
+      &:last-child {
+        border-bottom: none;
       }
 
-      .shop-name {
-        font-size: 28rpx;
-        font-weight: bold;
-        color: #333;
-      }
-    }
-
-    .goods-items {
-      .goods-item {
-        display: flex;
-        padding: 20rpx;
-        border-bottom: 1rpx solid #f5f5f5;
-
-        .goods-image {
-          width: 160rpx;
-          height: 160rpx;
-          margin-right: 20rpx;
-          border-radius: 12rpx;
-        }
-
-        .goods-info {
-          display: flex;
-          flex: 1;
-          flex-direction: column;
-
-          .goods-name {
-            margin-bottom: 12rpx;
-            font-size: 28rpx;
-            font-weight: bold;
-            color: #333;
-          }
-
-          .goods-spec {
-            margin-bottom: 20rpx;
-            font-size: 24rpx;
-            color: #999;
-          }
-
-          .goods-bottom {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            .goods-price {
-              font-size: 32rpx;
-              font-weight: bold;
-              color: #ff6b6b;
-            }
-
-            .goods-quantity {
-              font-size: 28rpx;
-              color: #999;
-            }
-          }
-        }
-      }
-    }
-
-    .shop-coupon,
-    .delivery {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 20rpx;
-      border-bottom: 1rpx solid #f5f5f5;
-
-      .label {
-        font-size: 28rpx;
-        color: #333;
+      .goods-image {
+        width: 160rpx;
+        height: 160rpx;
+        margin-right: 20rpx;
+        border-radius: 12rpx;
       }
 
-      .coupon-info,
-      .delivery-info {
-        display: flex;
-        align-items: center;
+      .goods-info {
+        flex: 1;
 
-        text {
+        .goods-name {
+          margin-bottom: 12rpx;
           font-size: 28rpx;
-          color: #666;
-
-          &.selected {
-            color: #ff6b6b;
-          }
-
-          &.none {
-            color: #999;
-          }
+          font-weight: bold;
+          color: #333;
         }
 
-        .iconfont {
-          margin-left: 8rpx;
-          font-size: 32rpx;
+        .goods-spec {
+          margin-bottom: 20rpx;
+          font-size: 24rpx;
           color: #999;
         }
 
-        .fee {
-          color: #ff6b6b;
+        .goods-bottom {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          .goods-price {
+            font-size: 32rpx;
+            font-weight: bold;
+            color: #ff6b6b;
+          }
+
+          .goods-quantity {
+            font-size: 28rpx;
+            color: #666;
+          }
         }
       }
     }
+  }
 
-    .shop-total {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      padding: 20rpx;
+  .delivery {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20rpx;
+    border-bottom: 1rpx solid #f5f5f5;
 
-      text {
-        margin-left: 20rpx;
+    .label {
+      font-size: 28rpx;
+      color: #333;
+    }
+
+    .delivery-info {
+      .method {
+        margin-right: 20rpx;
         font-size: 28rpx;
         color: #666;
-
-        &.price {
-          font-size: 32rpx;
-          font-weight: bold;
-          color: #ff6b6b;
-        }
       }
+
+      .fee {
+        font-size: 28rpx;
+        color: #ff6b6b;
+      }
+    }
+  }
+
+  .goods-total {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 20rpx;
+
+    text {
+      font-size: 28rpx;
+      color: #666;
+    }
+
+    .price {
+      margin-left: 12rpx;
+      font-size: 32rpx;
+      font-weight: bold;
+      color: #ff6b6b;
     }
   }
 }
@@ -557,19 +528,24 @@ const submitOrder = async () => {
   border-radius: 16rpx;
 
   .label {
-    margin-bottom: 20rpx;
+    display: block;
+    margin-bottom: 16rpx;
     font-size: 28rpx;
     color: #333;
   }
 
   input {
     width: 100%;
+    height: 80rpx;
+    padding: 0 20rpx;
     font-size: 28rpx;
     color: #333;
+    background-color: #f8f8f8;
+    border-radius: 8rpx;
+  }
 
-    &.placeholder {
-      color: #999;
-    }
+  .placeholder {
+    color: #999;
   }
 }
 
@@ -605,10 +581,11 @@ const submitOrder = async () => {
     width: 240rpx;
     height: 80rpx;
     font-size: 32rpx;
+    font-weight: bold;
     line-height: 80rpx;
     color: #fff;
     text-align: center;
-    background-color: #018d71;
+    background-color: #ff6b6b;
     border-radius: 40rpx;
   }
 }

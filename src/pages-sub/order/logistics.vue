@@ -1,340 +1,350 @@
 <template>
-  <view class="logistics">
-    <!-- 物流状态 -->
-    <view class="status-section">
-      <view class="status-info">
-        <text class="status-text">{{ logisticsInfo.status }}</text>
-        <text class="status-desc">{{ logisticsInfo.lastTrack?.desc }}</text>
-        <text class="status-time">{{ logisticsInfo.lastTrack?.time }}</text>
+  <view class="logistics-container">
+    <!-- 头部导航 -->
+    <view class="header">
+      <view class="nav-back" @click="router.back()">
+        <text class="iconfont icon-arrow-left"></text>
       </view>
-      <image class="status-bg" src="/static/images/logistics-bg.png" mode="aspectFill" />
+      <text class="title">物流追踪</text>
     </view>
 
-    <!-- 收货地址 -->
-    <view class="address-section">
-      <view class="address-info">
-        <view class="contact">
-          <text class="name">{{ logisticsInfo.address?.name }}</text>
-          <text class="phone">{{ logisticsInfo.address?.phone }}</text>
-        </view>
-        <text class="address">{{ logisticsInfo.address?.fullAddress }}</text>
+    <!-- 物流信息卡片 -->
+    <view class="logistics-card">
+      <view class="company-info">
+        <text class="company">{{ logisticsInfo?.logisticsCompany }}</text>
+        <text class="number">运单号：{{ logisticsInfo?.logisticsNumber }}</text>
+        <text class="copy" @click="handleCopy">复制</text>
       </view>
-      <text class="iconfont icon-location"></text>
-    </view>
-
-    <!-- 包裹信息 -->
-    <view class="package-section">
-      <view class="package-header">
-        <text>包裹信息</text>
-      </view>
-      <view class="package-content">
-        <view class="info-item">
-          <text>快递公司</text>
-          <text>{{ logisticsInfo.company }}</text>
-        </view>
-        <view class="info-item">
-          <text>运单编号</text>
-          <view class="copy-wrapper">
-            <text>{{ logisticsInfo.trackingNo }}</text>
-            <text class="copy-btn" @click="copyTrackingNo">复制</text>
-          </view>
-        </view>
+      <view class="current-info" v-if="logisticsInfo?.currentLocation">
+        <text class="location">{{ logisticsInfo.currentLocation.address }}</text>
+        <text class="time">{{ formatTime(logisticsInfo.currentLocation.updateTime) }}</text>
       </view>
     </view>
 
-    <!-- 物流轨迹 -->
-    <view class="track-section">
-      <view class="track-header">
-        <text>物流轨迹</text>
-      </view>
-      <view class="track-list">
+    <!-- 地图容器 -->
+    <view class="map-container">
+      <map
+        id="logistics-map"
+        class="map"
+        :latitude="mapCenter.latitude"
+        :longitude="mapCenter.longitude"
+        :markers="markers"
+        :polyline="[polyline]"
+        :scale="12"
+        show-location
+      ></map>
+    </view>
+
+    <!-- 物流进度 -->
+    <scroll-view class="progress-container" scroll-y>
+      <view class="progress-list">
         <view
-          v-for="(track, index) in logisticsInfo.tracks"
+          v-for="(node, index) in logisticsInfo?.nodes"
           :key="index"
-          class="track-item"
+          class="progress-item"
           :class="{ active: index === 0 }"
         >
-          <view class="track-dot"></view>
-          <view class="track-line" v-if="index !== logisticsInfo.tracks.length - 1"></view>
-          <view class="track-info">
-            <text class="track-desc">{{ track.desc }}</text>
-            <text class="track-time">{{ track.time }}</text>
+          <view class="time-info">
+            <text class="time">{{ formatTime(node.time) }}</text>
+          </view>
+          <view class="content">
+            <view class="dot"></view>
+            <view class="line" v-if="index !== logisticsInfo.nodes.length - 1"></view>
+            <view class="info">
+              <text class="status">{{ node.status }}</text>
+              <text class="desc">{{ node.location }}</text>
+            </view>
           </view>
         </view>
       </view>
-    </view>
+    </scroll-view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
+import { getLogisticsInfo } from '@/services/order'
+import type { LogisticsInfo, LogisticsNode } from '@/services/order'
+import { AMAP_CONFIG, LOGISTICS_MARKER } from '@/config/amap'
 
-// 物流信息
-const logisticsInfo = ref({
-  status: '运输中',
-  company: '顺丰快递',
-  trackingNo: 'SF1234567890123',
-  address: {
-    name: '张三',
-    phone: '13800138000',
-    fullAddress: '广东省广州市天河区天河路1号',
-  },
-  lastTrack: {
-    desc: '快件已到达【广州天河集散中心】',
-    time: '2024-03-15 14:30:00',
-  },
-  tracks: [
-    {
-      desc: '快件已到达【广州天河集散中心】',
-      time: '2024-03-15 14:30:00',
-    },
-    {
-      desc: '快件已从【广州白云仓】发出',
-      time: '2024-03-15 10:20:00',
-    },
-    {
-      desc: '快件已到达【广州白云仓】',
-      time: '2024-03-15 08:15:00',
-    },
-    {
-      desc: '快件已揽收',
-      time: '2024-03-15 06:30:00',
-    },
-    {
-      desc: '商家已发货',
-      time: '2024-03-14 18:00:00',
-    },
-  ],
+const router = useRouter()
+const logisticsInfo = ref<LogisticsInfo>()
+
+// 获取页面参数
+const orderId = ref<number>()
+
+// 地图中心点
+const mapCenter = computed(() => {
+  if (logisticsInfo.value?.currentLocation) {
+    return {
+      latitude: logisticsInfo.value.currentLocation.latitude,
+      longitude: logisticsInfo.value.currentLocation.longitude,
+    }
+  }
+  // 默认中心点（广州）
+  return {
+    latitude: 23.12908,
+    longitude: 113.264385,
+  }
 })
 
+// 标记点
+const markers = computed(() => {
+  if (!logisticsInfo.value?.nodes) return []
+
+  return logisticsInfo.value.nodes
+    .filter((node) => node.coordinates)
+    .map((node, index) => ({
+      id: index,
+      latitude: node.coordinates!.latitude,
+      longitude: node.coordinates!.longitude,
+      ...LOGISTICS_MARKER[index === 0 ? 'current' : 'history'],
+    }))
+})
+
+// 路线
+const polyline = computed(() => {
+  if (!logisticsInfo.value?.nodes) return { points: [] }
+
+  const points = logisticsInfo.value.nodes
+    .filter((node) => node.coordinates)
+    .map((node) => ({
+      latitude: node.coordinates!.latitude,
+      longitude: node.coordinates!.longitude,
+    }))
+
+  return {
+    points,
+    color: '#018d71',
+    width: 4,
+    arrowLine: true,
+  }
+})
+
+// 格式化时间
+const formatTime = (time: string) => {
+  const date = new Date(time)
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const day = date.getDate().toString().padStart(2, '0')
+  const hour = date.getHours().toString().padStart(2, '0')
+  const minute = date.getMinutes().toString().padStart(2, '0')
+  return `${month}-${day} ${hour}:${minute}`
+}
+
 // 复制运单号
-const copyTrackingNo = () => {
+const handleCopy = () => {
+  if (!logisticsInfo.value?.logisticsNumber) return
   uni.setClipboardData({
-    data: logisticsInfo.value.trackingNo,
+    data: logisticsInfo.value.logisticsNumber,
     success: () => {
       showToast('复制成功')
     },
   })
 }
 
+// 获取物流信息
+const getLogistics = async () => {
+  try {
+    if (!orderId.value) return
+    const res = await getLogisticsInfo(orderId.value)
+    logisticsInfo.value = res.data
+  } catch (error: any) {
+    showToast(error.message || '获取物流信息失败')
+  }
+}
+
 // 页面加载
-onMounted(async () => {
+onMounted(() => {
   // 获取页面参数
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
   const { id } = currentPage?.options || {}
 
   if (id) {
-    try {
-      // TODO: 调用获取物流信息接口
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      // 模拟数据已经在 logisticsInfo 中
-    } catch (error) {
-      showToast('加载失败')
-    }
+    orderId.value = Number(id)
+    getLogistics()
   }
 })
 </script>
 
 <style lang="scss">
-.logistics {
+.logistics-container {
   min-height: 100vh;
   background-color: #f8f8f8;
-}
 
-.status-section {
-  position: relative;
-  height: 200rpx;
-  padding: 40rpx;
-  color: #fff;
-  background: linear-gradient(to right, #4a90e2, #87c4ff);
-
-  .status-info {
+  .header {
     position: relative;
-    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 88rpx;
+    background-color: #fff;
+    border-bottom: 1px solid #f5f5f5;
 
-    .status-text {
-      display: block;
-      margin-bottom: 16rpx;
+    .nav-back {
+      position: absolute;
+      left: 32rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 88rpx;
+      height: 88rpx;
+      margin-left: -32rpx;
+
+      .iconfont {
+        font-size: 40rpx;
+        color: #333;
+      }
+    }
+
+    .title {
       font-size: 36rpx;
       font-weight: bold;
-    }
-
-    .status-desc {
-      display: block;
-      margin-bottom: 8rpx;
-      font-size: 26rpx;
-      opacity: 0.9;
-    }
-
-    .status-time {
-      font-size: 24rpx;
-      opacity: 0.8;
+      color: #333;
     }
   }
 
-  .status-bg {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 200rpx;
-    height: 200rpx;
-    opacity: 0.1;
-  }
-}
+  .logistics-card {
+    padding: 32rpx;
+    margin: 20rpx;
+    background-color: #fff;
+    border-radius: 16rpx;
 
-.address-section {
-  display: flex;
-  align-items: center;
-  padding: 30rpx;
-  margin: 20rpx;
-  background-color: #fff;
-  border-radius: 16rpx;
+    .company-info {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16rpx;
 
-  .address-info {
-    flex: 1;
-    margin-right: 20rpx;
-
-    .contact {
-      margin-bottom: 12rpx;
-
-      .name {
+      .company {
         margin-right: 20rpx;
-        font-size: 30rpx;
+        font-size: 32rpx;
         font-weight: bold;
+        color: #333;
       }
 
-      .phone {
+      .number {
+        flex: 1;
         font-size: 28rpx;
         color: #666;
       }
+
+      .copy {
+        padding: 8rpx 20rpx;
+        font-size: 24rpx;
+        color: #018d71;
+        background-color: rgba(1, 141, 113, 0.1);
+        border-radius: 24rpx;
+      }
     }
 
-    .address {
-      font-size: 26rpx;
-      color: #666;
-    }
-  }
-
-  .iconfont {
-    font-size: 40rpx;
-    color: #999;
-  }
-}
-
-.package-section {
-  margin: 20rpx;
-  background-color: #fff;
-  border-radius: 16rpx;
-
-  .package-header {
-    padding: 30rpx;
-    font-size: 30rpx;
-    font-weight: bold;
-    color: #333;
-    border-bottom: 1rpx solid #eee;
-  }
-
-  .package-content {
-    padding: 20rpx 30rpx;
-
-    .info-item {
+    .current-info {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10rpx 0;
-      font-size: 26rpx;
-      color: #666;
+      flex-direction: column;
 
-      .copy-wrapper {
-        display: flex;
-        align-items: center;
+      .location {
+        margin-bottom: 8rpx;
+        font-size: 28rpx;
+        color: #333;
+      }
 
-        .copy-btn {
-          margin-left: 20rpx;
-          color: #4a90e2;
-        }
+      .time {
+        font-size: 24rpx;
+        color: #999;
       }
     }
   }
-}
 
-.track-section {
-  margin: 20rpx;
-  background-color: #fff;
-  border-radius: 16rpx;
+  .map-container {
+    margin: 0 20rpx;
+    overflow: hidden;
+    background-color: #fff;
+    border-radius: 16rpx;
 
-  .track-header {
-    padding: 30rpx;
-    font-size: 30rpx;
-    font-weight: bold;
-    color: #333;
-    border-bottom: 1rpx solid #eee;
+    .map {
+      width: 100%;
+      height: 400rpx;
+    }
   }
 
-  .track-list {
-    padding: 30rpx;
+  .progress-container {
+    height: calc(100vh - 88rpx - 240rpx - 440rpx);
+    padding: 32rpx;
+    margin: 20rpx;
+    overflow: hidden;
+    background-color: #fff;
+    border-radius: 16rpx;
 
-    .track-item {
-      position: relative;
-      padding-left: 30rpx;
-      margin-bottom: 40rpx;
+    .progress-list {
+      .progress-item {
+        display: flex;
+        margin-bottom: 32rpx;
 
-      &:last-child {
-        margin-bottom: 0;
-      }
-
-      .track-dot {
-        position: absolute;
-        top: 6rpx;
-        left: 0;
-        width: 16rpx;
-        height: 16rpx;
-        background-color: #ddd;
-        border-radius: 50%;
-      }
-
-      .track-line {
-        position: absolute;
-        top: 22rpx;
-        left: 7rpx;
-        width: 2rpx;
-        height: calc(100% + 24rpx);
-        background-color: #eee;
-      }
-
-      .track-info {
-        .track-desc {
-          display: block;
-          margin-bottom: 8rpx;
-          font-size: 26rpx;
-          color: #666;
+        &:last-child {
+          margin-bottom: 0;
         }
 
-        .track-time {
+        .time-info {
+          width: 120rpx;
+          margin-right: 32rpx;
           font-size: 24rpx;
           color: #999;
-        }
-      }
-
-      &.active {
-        .track-dot {
-          left: -2rpx;
-          width: 20rpx;
-          height: 20rpx;
-          background-color: #4a90e2;
-          border: 4rpx solid rgba(74, 144, 226, 0.2);
+          text-align: right;
         }
 
-        .track-info {
-          .track-desc {
-            font-weight: bold;
-            color: #333;
+        .content {
+          position: relative;
+          flex: 1;
+          padding-left: 30rpx;
+
+          .dot {
+            position: absolute;
+            top: 8rpx;
+            left: 0;
+            width: 16rpx;
+            height: 16rpx;
+            background-color: #999;
+            border-radius: 50%;
           }
 
-          .track-time {
-            color: #666;
+          .line {
+            position: absolute;
+            top: 24rpx;
+            left: 7rpx;
+            width: 2rpx;
+            height: calc(100% + 16rpx);
+            background-color: #eee;
+          }
+
+          .info {
+            .status {
+              display: block;
+              margin-bottom: 8rpx;
+              font-size: 28rpx;
+              color: #333;
+            }
+
+            .desc {
+              font-size: 24rpx;
+              color: #666;
+            }
+          }
+        }
+
+        &.active {
+          .time-info {
+            color: #018d71;
+          }
+
+          .content {
+            .dot {
+              background-color: #018d71;
+            }
+
+            .status {
+              color: #018d71;
+            }
           }
         }
       }

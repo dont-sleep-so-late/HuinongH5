@@ -64,8 +64,8 @@
         </view>
       </view>
       <view class="right-actions">
-        <wd-button type="warning" @click="addToCart">加入购物车</wd-button>
-        <wd-button type="primary" @click="buyNow">立即购买</wd-button>
+        <wd-button type="primary" @click="handleAddToCart">加入购物车</wd-button>
+        <wd-button type="warning" @click="handleBuyNow">立即购买</wd-button>
       </view>
     </view>
 
@@ -76,7 +76,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
+import { addToCart } from '@/services/cart'
+import { previewBuyNowOrder } from '@/services/order'
+import type { OrderPreview } from '@/services/order'
 
 // 商品信息
 const goodsInfo = ref({
@@ -131,24 +135,54 @@ const selectSpec = (spec: string) => {
 }
 
 // 加入购物车
-const addToCart = () => {
+const handleAddToCart = async () => {
   if (!selectedSpec.value) {
-    showToast('请选择规格')
+    showToast('请选择商品规格')
     return
   }
-  // TODO: 调用加入购物车接口
-  showToast('已加入购物车')
+
+  try {
+    await addToCart({
+      productId: goodsInfo.value.id,
+      specId: Number(selectedSpec.value),
+      quantity: 1,
+    })
+    showToast('添加成功')
+  } catch (error: any) {
+    showToast(error.message || '添加失败')
+  }
 }
 
 // 立即购买
-const buyNow = () => {
+const handleBuyNow = async () => {
   if (!selectedSpec.value) {
-    showToast('请选择规格')
+    showToast('请选择商品规格')
     return
   }
-  uni.navigateTo({
-    url: '/pages-sub/order/create',
-  })
+
+  try {
+    const res = await previewBuyNowOrder({
+      productId: goodsInfo.value.id,
+      specId: Number(selectedSpec.value),
+      quantity: 1,
+    })
+
+    if (res.data) {
+      // 将预览数据存储到本地，用于订单确认页面
+      uni.setStorageSync('order_preview', {
+        type: 'buy_now',
+        data: res.data,
+        params: {
+          productId: goodsInfo.value.id,
+          specId: Number(selectedSpec.value),
+          quantity: 1,
+        },
+      })
+      router.navigate('/pages-sub/order/create')
+    }
+  } catch (error: any) {
+    showToast(error.message || '获取订单信息失败')
+  }
 }
 
 // 跳转到购物车

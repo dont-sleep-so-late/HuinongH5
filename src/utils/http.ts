@@ -98,8 +98,10 @@ const responseInterceptor = (response: any) => {
   if (response.statusCode === 401) {
     // 清除用户信息和token
     userStore.logout()
+
     // 显示提示
     showToast('登录已过期，请重新登录')
+
     // 跳转到登录页
     router.reLaunch('/pages/login/index')
     return Promise.reject(new Error('登录已过期，请重新登录'))
