@@ -1,8 +1,8 @@
 <template>
   <view class="role-select">
     <view class="welcome">
-      <text class="title">欢迎来到农选</text>
-      <text class="subtitle">3000万人在农选轻松买卖农产品</text>
+      <text class="title">欢迎来到惠农平台</text>
+      <text class="subtitle">3000万人在惠农平台轻松买卖农产品</text>
     </view>
 
     <view class="role-buttons">
@@ -31,11 +31,7 @@ const handleRoleSelect = (role: 'buyer' | 'seller') => {
   uni.setStorageSync('userRole', role)
 
   // 跳转到对应页面
-  if (role === 'buyer') {
-    router.switchTab('/pages/index/index')
-  } else {
-    router.switchTab('/pages/user/index')
-  }
+  router.switchTab('/pages/login/index')
 }
 </script>
 

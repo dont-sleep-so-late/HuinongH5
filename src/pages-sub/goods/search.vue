@@ -81,7 +81,7 @@
 
       <!-- 无数据提示 -->
       <view class="empty" v-if="searchResults.length === 0 && !isLoading">
-        <image src="/static/icons/empty-search.png" mode="aspectFit" class="empty-icon" />
+        <image src="" mode="aspectFit" class="empty-icon" />
         <text>暂无相关商品</text>
       </view>
     </scroll-view>

@@ -28,7 +28,7 @@
           >
             <view class="message-header">
               <view class="sender-info">
-                <image src="/static/avatar/robot.png" class="sender-avatar" mode="aspectFill" />
+                <image src="" class="sender-avatar" mode="aspectFill" />
                 <text class="sender-name">智能助手</text>
               </view>
               <text class="message-time">{{ item.time }}</text>
@@ -40,7 +40,7 @@
           </view>
         </view>
         <view class="empty-message" v-else>
-          <image src="/static/icons/empty-message.png" mode="aspectFit" class="empty-icon" />
+          <image src="" mode="aspectFit" class="empty-icon" />
           <text class="empty-text">{{ searchKeyword ? '未找到相关消息' : '暂无系统消息' }}</text>
         </view>
       </wd-tab>
@@ -74,7 +74,7 @@
           </view>
         </view>
         <view class="empty-message" v-else>
-          <image src="/static/icons/empty-message.png" mode="aspectFit" class="empty-icon" />
+          <image src="" mode="aspectFit" class="empty-icon" />
           <text class="empty-text">{{ searchKeyword ? '未找到相关店铺' : '暂无店铺消息' }}</text>
         </view>
       </wd-tab>

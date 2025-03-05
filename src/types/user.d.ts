@@ -4,7 +4,7 @@ export interface UserInfo {
   nickname: string
   avatar: string
   role: 'buyer' | 'seller'
-  isVerified: boolean
+  verified: boolean
 }
 
 export interface LoginResponse {

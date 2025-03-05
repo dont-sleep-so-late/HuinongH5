@@ -2,16 +2,23 @@ import { showToast } from './toast'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from '@/hooks/router'
 
+// API响应类型
+interface ApiResponse<T = any> {
+  code: number
+  message: string
+  data: T
+}
+
 // 创建请求配置
 const config = {
-  baseURL: 'http://localhost:8888',
+  baseURL: import.meta.env.VITE_SERVER_BASEURL + '/api/m',
   timeout: 10000,
 }
 
 // 创建请求实例
 const http = {
   config,
-  request(options: UniNamespace.RequestOptions) {
+  request<T>(options: UniNamespace.RequestOptions): Promise<ApiResponse<T>> {
     return new Promise((resolve, reject) => {
       uni.request({
         ...options,
@@ -24,14 +31,16 @@ const http = {
         success: (res: any) => {
           // 处理响应
           if (res.statusCode === 200) {
-            if (res.data.code === 200) {
-              resolve(res.data)
+            // 先经过响应拦截器处理
+            const interceptedRes = responseInterceptor(res)
+            if (interceptedRes) {
+              resolve(interceptedRes.data)
             } else {
-              showToast(res.data.message || '请求失败')
-              reject(new Error(res.data.message))
+              reject(new Error('响应拦截器处理失败'))
             }
           } else {
-            showToast('网络请求失败')
+            // 非200状态码，交给响应拦截器处理
+            responseInterceptor(res)
             reject(new Error('网络请求失败'))
           }
         },
@@ -43,36 +52,36 @@ const http = {
     })
   },
 
-  get<T>(url: string, data?: any) {
-    return this.request({
+  get<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>({
       url,
       method: 'GET',
       data,
-    }) as Promise<T>
+    })
   },
 
-  post<T>(url: string, data?: any) {
-    return this.request({
+  post<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>({
       url,
       method: 'POST',
       data,
-    }) as Promise<T>
+    })
   },
 
-  put<T>(url: string, data?: any) {
-    return this.request({
+  put<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>({
       url,
       method: 'PUT',
       data,
-    }) as Promise<T>
+    })
   },
 
-  delete<T>(url: string, data?: any) {
-    return this.request({
+  delete<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>({
       url,
       method: 'DELETE',
       data,
-    }) as Promise<T>
+    })
   },
 }
 
@@ -93,36 +102,34 @@ const requestInterceptor = (config: UniNamespace.RequestOptions) => {
 const responseInterceptor = (response: any) => {
   const userStore = useUserStore()
   const router = useRouter()
-
-  // 处理401未授权的情况
-  if (response.statusCode === 401) {
-    // 清除用户信息和token
-    userStore.logout()
-
-    // 显示提示
-    showToast('登录已过期，请重新登录')
-
-    // 跳转到登录页
-    router.reLaunch('/pages/login/index')
-    return Promise.reject(new Error('登录已过期，请重新登录'))
+  switch (response.data.code) {
+    case 401:
+      // 清除用户信息和token
+      userStore.logout()
+      // 显示提示
+      showToast('登录已过期，请重新登录')
+      // 跳转到登录页
+      router.reLaunch('/pages/role/index')
+      return null
+    case 403:
+      showToast('没有权限访问该资源')
+      userStore.logout()
+      router.reLaunch('/pages/role/index')
+      return null
+    case 404:
+      showToast('请求的资源不存在')
+      return null
+    case 500:
+      showToast(response.data.message || '服务器错误，请稍后重试')
+      return null
+    default:
+      break
   }
 
-  // 处理403禁止访问的情况
-  if (response.statusCode === 403) {
-    showToast('没有权限访问该资源')
-    return Promise.reject(new Error('没有权限访问该资源'))
-  }
-
-  // 处理404未找到的情况
-  if (response.statusCode === 404) {
-    showToast('请求的资源不存在')
-    return Promise.reject(new Error('请求的资源不存在'))
-  }
-
-  // 处理500服务器错误
-  if (response.statusCode >= 500) {
-    showToast('服务器错误，请稍后重试')
-    return Promise.reject(new Error('服务器错误，请稍后重试'))
+  // 处理业务错误
+  if (response.data.code !== 200) {
+    showToast(response.data.message || '请求失败')
+    return null
   }
 
   return response
@@ -130,9 +137,9 @@ const responseInterceptor = (response: any) => {
 
 // 添加拦截器
 const oldRequest = http.request
-http.request = (options: UniNamespace.RequestOptions) => {
+http.request = function <T>(options: UniNamespace.RequestOptions): Promise<ApiResponse<T>> {
   const newOptions = requestInterceptor(options)
-  return oldRequest.call(http, newOptions).then(responseInterceptor)
+  return oldRequest.call(http, newOptions) as Promise<ApiResponse<T>>
 }
 
 export { http }

@@ -12,7 +12,7 @@ export interface UserInfo {
   phone: string | null
   avatar: string | null
   role: 'buyer' | 'seller'
-  status: number
+  verified: boolean
   createdTime: string
   updatedTime: string | null
   lastLoginTime: string | null

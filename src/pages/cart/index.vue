@@ -8,7 +8,7 @@
 
     <!-- 购物车为空 -->
     <view class="empty" v-if="cartList.length === 0">
-      <image src="/static/icons/empty-cart.png" mode="aspectFit" class="empty-icon" />
+      <image src="" mode="aspectFit" class="empty-icon" />
       <text class="empty-text">购物车还是空的</text>
       <wd-button type="primary" size="small" @click="goShopping">去逛逛</wd-button>
     </view>

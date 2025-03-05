@@ -9,7 +9,7 @@
 
     <view class="form-container">
       <view class="welcome">
-        <text class="title">欢迎加入农选</text>
+        <text class="title">欢迎加入惠农平台</text>
         <text class="subtitle">请填写以下信息完成注册</text>
       </view>
 
@@ -145,12 +145,15 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
-import { registerByEmail, sendEmailCode } from '@/services/auth'
+import { useUserStore } from '@/stores/user'
+import { register, sendPhoneCode, sendEmailCode } from '@/api/auth'
+import type { LoginResponse } from '@/types/auth'
 import { md5 } from '@/utils/crypto'
 
 const router = useRouter()
+const userStore = useUserStore()
 const loading = ref(false)
-const registerType = ref('phone')
+const registerType = ref<'phone' | 'email'>('phone')
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const counting = ref(false)
@@ -203,6 +206,10 @@ const handleSendCode = async () => {
       })
     } else {
       // TODO: 调用发送手机验证码接口
+      await sendPhoneCode({
+        phone: form.account,
+        type: 'register',
+      })
     }
 
     // 开始倒计时
@@ -278,21 +285,24 @@ const handleRegister = async () => {
     loading.value = true
     const role = uni.getStorageSync('userRole') || 'buyer'
 
-    if (registerType.value === 'email') {
-      // 调用邮箱注册接口
-      const { data } = await registerByEmail({
-        email: form.account,
-        password: md5(form.password),
-        code: form.code,
-        role,
-      })
+    // 调用统一注册接口
+    const res = await register({
+      type: registerType.value,
+      username: form.account, // 使用账号作为用户名
+      password: md5(form.password),
+      [registerType.value]: form.account, // 根据类型设置 phone 或 email
+      verifyCode: form.code,
+      role,
+    })
 
+    if (res.code === 200 && res.data) {
+      router.navigate('/pages/login/index')
       // 保存登录信息
-      uni.setStorageSync('token', data.token)
+      userStore.login(res.data.userInfo, res.data.token)
       showToast('注册成功', { icon: 'success' })
 
       // 如果是卖家且未认证，跳转到认证页面
-      if (data.userInfo.role === 'seller' && !data.userInfo.isVerified) {
+      if (role === 'seller' && !res.data.userInfo.status) {
         router.navigate('/pages-sub/user/verify')
         return
       }
@@ -302,8 +312,7 @@ const handleRegister = async () => {
         router.switchTab('/pages/index/index')
       }, 1500)
     } else {
-      // TODO: 实现手机号注册
-      showToast('手机号注册功能开发中')
+      showToast(res.message || '注册失败')
     }
   } catch (error: any) {
     showToast(error.message || '注册失败，请重试')
@@ -356,17 +365,25 @@ const handleRegister = async () => {
     padding: 40rpx;
 
     .welcome {
-      margin-bottom: 60rpx;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40rpx 0;
+      text-align: center;
 
       .title {
+        display: block;
         margin-bottom: 16rpx;
-        font-size: 48rpx;
+        font-size: 40rpx;
         font-weight: bold;
+        line-height: 1.4;
         color: #333;
       }
 
       .subtitle {
+        display: block;
         font-size: 28rpx;
+        line-height: 1.4;
         color: #666;
       }
     }

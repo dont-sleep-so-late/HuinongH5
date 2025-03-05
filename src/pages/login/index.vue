@@ -2,8 +2,8 @@
   <view class="login-container">
     <view class="header">
       <image class="logo" src="/static/images/logo.png" mode="aspectFit" />
-      <text class="title">欢迎来到农选</text>
-      <text class="subtitle">3000万人在农选轻松买卖农产品</text>
+      <text class="title">欢迎来到惠农平台</text>
+      <text class="subtitle">3000万人在惠农平台轻松买卖农产品</text>
     </view>
 
     <view class="form-container">
@@ -136,7 +136,8 @@ import {
   loginByEmailCode,
   sendPhoneCode,
   sendEmailCode,
-} from '@/services/auth'
+} from '@/api/auth'
+import type { LoginResponse } from '@/types/auth'
 import { md5 } from '@/utils/crypto'
 
 const router = useRouter()
@@ -291,8 +292,8 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    let res
     const role = uni.getStorageSync('userRole') || 'buyer'
+    let res
 
     if (loginType.value === 'email') {
       if (loginMethod.value === 'code') {
@@ -324,18 +325,20 @@ const handleLogin = async () => {
       }
     }
 
-    if (res.data) {
+    if (res.code === 200 && res.data) {
       userStore.login(res.data.userInfo, res.data.token)
       showToast('登录成功')
 
       // 如果是卖家且未认证，跳转到认证页面
-      if (res.data.userInfo.role === 'seller' && !res.data.userInfo.isVerified) {
+      if (res.data.userInfo.role === 'seller' && res.data.userInfo.verified === false) {
         router.navigate('/pages-sub/user/verify')
         return
       }
 
       // 跳转到首页
       router.reLaunch('/pages/index/index')
+    } else {
+      showToast(res.message || '登录失败')
     }
   } catch (error: any) {
     showToast(error.message || '登录失败')

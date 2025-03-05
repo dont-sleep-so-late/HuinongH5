@@ -1,0 +1,51 @@
+// 单行文本省略
+@mixin text-ellipsis($line: 1) {
+  @if $line == 1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  } @else {
+    display: -webkit-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: $line;
+  }
+}
+
+// 多行文本省略（兼容性写法）
+@mixin line-clamp($line: 2) {
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: $line;
+}
+
+// H5平台特定的混入
+@mixin h5-safe-area-inset-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@mixin h5-safe-area-inset-top {
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+}
+
+// 1px边框
+@mixin h5-hairline($position: bottom, $color: #eee) {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    #{$position}: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: $color;
+    transform: scaleY(0.5);
+    transform-origin: 0 100%;
+  }
+} 

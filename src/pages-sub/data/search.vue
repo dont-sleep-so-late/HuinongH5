@@ -38,7 +38,7 @@
 
       <!-- 空状态 -->
       <view class="empty-state" v-else-if="!isLoading">
-        <image src="/static/icons/empty-search.png" mode="aspectFit" class="empty-icon" />
+        <image src="" mode="aspectFit" class="empty-icon" />
         <text class="empty-text">未找到相关商品</text>
         <text class="empty-tips">换个关键词试试吧</text>
       </view>

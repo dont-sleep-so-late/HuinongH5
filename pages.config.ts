@@ -4,20 +4,15 @@ import type { TabBar as UniTabBar } from '@uni-helper/vite-plugin-uni-pages'
 import { getTabBarByRole } from './src/config/menu'
 import type { UserRole } from './src/config/menu'
 
-// 从缓存或状态管理中获取用户角色
-const getUserRole = (): UserRole => {
-  try {
-    const role = uni.getStorageSync('userRole') as UserRole
-    return role || 'buyer' // 默认返回买家角色
-  } catch (e) {
-    console.error('获取用户角色失败:', e)
-    return 'buyer'
-  }
-}
-
 // 转换菜单配置为uni-pages要求的格式
 const convertTabBar = (tabBar: ReturnType<typeof getTabBarByRole>): UniTabBar => {
-  const list = tabBar.list.slice(0, 5)
+  const list = tabBar.list.slice(0, 5).map((item) => ({
+    pagePath: item.pagePath,
+    text: item.text,
+    iconPath: item.iconPath,
+    selectedIconPath: item.selectedIconPath,
+  }))
+
   return {
     color: tabBar.color,
     selectedColor: tabBar.selectedColor,
@@ -42,7 +37,73 @@ export default defineUniPages({
         'z-paging/components/z-paging$1/z-paging$1.vue',
     },
   },
-  tabBar: convertTabBar(getTabBarByRole(getUserRole())),
+  pages: [
+    {
+      path: 'pages/role/index',
+      type: 'page',
+      style: {
+        navigationStyle: 'custom',
+        navigationBarTitleText: '选择角色',
+      },
+    },
+    {
+      path: 'pages/login/index',
+      style: {
+        navigationBarTitleText: '登录',
+      },
+    },
+
+    {
+      path: 'pages/register/index',
+      style: {
+        navigationBarTitleText: '注册',
+      },
+    },
+    {
+      path: 'pages/forgot-password/index',
+      style: {
+        navigationBarTitleText: '忘记密码',
+      },
+    },
+    {
+      path: 'pages/index/index',
+      type: 'home',
+      style: {
+        navigationStyle: 'custom',
+        navigationBarTitleText: '首页',
+      },
+    },
+    {
+      path: 'pages/category/index',
+      style: {
+        navigationBarTitleText: '分类',
+      },
+    },
+    {
+      path: 'pages/cart/index',
+      style: {
+        navigationBarTitleText: '购物车',
+      },
+    },
+    {
+      path: 'pages/message/index',
+      style: {
+        navigationBarTitleText: '消息',
+      },
+    },
+    {
+      path: 'pages/user/index',
+      style: {
+        navigationBarTitleText: '我的',
+      },
+    },
+    {
+      path: 'pages/shelf/index',
+      style: {
+        navigationBarTitleText: '货架',
+      },
+    },
+  ],
   subPackages: [
     {
       root: 'pages-sub/data',
@@ -250,4 +311,5 @@ export default defineUniPages({
       ],
     },
   ],
+  tabBar: convertTabBar(getTabBarByRole('buyer')),
 })

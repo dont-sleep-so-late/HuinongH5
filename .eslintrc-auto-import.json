@@ -97,6 +97,7 @@
     "useId": true,
     "useModel": true,
     "useTemplateRef": true,
-    "useRouter": true
+    "useRouter": true,
+    "useToast": true
   }
 }

@@ -13,43 +13,92 @@
       "^(?!z-paging-refresh|z-paging-load-more)z-paging(.*)": "z-paging/components/z-paging$1/z-paging$1.vue"
     }
   },
-  "tabBar": {
-    "color": "#999999",
-    "selectedColor": "#018d71",
-    "backgroundColor": "#f8f8f8",
-    "list": [
-      {
-        "pagePath": "pages/index/index",
-        "text": "商城",
-        "iconPath": "static/tabbar/home.png",
-        "selectedIconPath": "static/tabbar/homeHL.png"
-      },
-      {
-        "pagePath": "pages/category/index",
-        "text": "分类",
-        "iconPath": "static/tabbar/category.png",
-        "selectedIconPath": "static/tabbar/categoryHL.png"
-      },
-      {
-        "pagePath": "pages/message/index",
-        "text": "消息",
-        "iconPath": "static/tabbar/message.png",
-        "selectedIconPath": "static/tabbar/messageHL.png"
-      },
-      {
-        "pagePath": "pages/cart/index",
-        "text": "购物车",
-        "iconPath": "static/tabbar/cart.png",
-        "selectedIconPath": "static/tabbar/cartHL.png"
-      },
-      {
-        "pagePath": "pages/user/index",
-        "text": "我的",
-        "iconPath": "static/tabbar/user.png",
-        "selectedIconPath": "static/tabbar/userHL.png"
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "type": "home",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "首页"
       }
-    ]
-  },
+    },
+    {
+      "path": "pages/about/about",
+      "type": "page",
+      "style": {
+        "navigationBarTitleText": "关于"
+      }
+    },
+    {
+      "path": "pages/cart/index",
+      "type": "page",
+      "style": {
+        "navigationBarTitleText": "购物车"
+      }
+    },
+    {
+      "path": "pages/category/index",
+      "type": "page",
+      "style": {
+        "navigationBarTitleText": "分类"
+      }
+    },
+    {
+      "path": "pages/forgot-password/index",
+      "type": "page",
+      "style": {
+        "navigationBarTitleText": "忘记密码"
+      }
+    },
+    {
+      "path": "pages/login/index",
+      "type": "page",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/message/index",
+      "type": "page",
+      "style": {
+        "navigationBarTitleText": "消息"
+      }
+    },
+    {
+      "path": "pages/publish/index",
+      "type": "page",
+      "style": {}
+    },
+    {
+      "path": "pages/register/index",
+      "type": "page",
+      "style": {
+        "navigationBarTitleText": "注册"
+      }
+    },
+    {
+      "path": "pages/role/index",
+      "type": "page",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "选择角色"
+      }
+    },
+    {
+      "path": "pages/shelf/index",
+      "type": "page",
+      "style": {
+        "navigationBarTitleText": "货架"
+      }
+    },
+    {
+      "path": "pages/user/index",
+      "type": "page",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    }
+  ],
   "subPackages": [
     {
       "root": "pages-sub/data",
@@ -257,61 +306,41 @@
       ]
     }
   ],
-  "pages": [
-    {
-      "path": "pages/index/index",
-      "type": "home",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "首页"
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#018d71",
+    "backgroundColor": "#f8f8f8",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "商城",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/homeHL.png"
+      },
+      {
+        "pagePath": "pages/category/index",
+        "text": "分类",
+        "iconPath": "static/tabbar/category.png",
+        "selectedIconPath": "static/tabbar/categoryHL.png"
+      },
+      {
+        "pagePath": "pages/message/index",
+        "text": "消息",
+        "iconPath": "static/tabbar/message.png",
+        "selectedIconPath": "static/tabbar/messageHL.png"
+      },
+      {
+        "pagePath": "pages/cart/index",
+        "text": "购物车",
+        "iconPath": "static/tabbar/cart.png",
+        "selectedIconPath": "static/tabbar/cartHL.png"
+      },
+      {
+        "pagePath": "pages/user/index",
+        "text": "我的",
+        "iconPath": "static/tabbar/user.png",
+        "selectedIconPath": "static/tabbar/userHL.png"
       }
-    },
-    {
-      "path": "pages/about/about",
-      "type": "page",
-      "style": {
-        "navigationBarTitleText": "关于"
-      }
-    },
-    {
-      "path": "pages/cart/index",
-      "type": "page"
-    },
-    {
-      "path": "pages/category/index",
-      "type": "page"
-    },
-    {
-      "path": "pages/forgot-password/index",
-      "type": "page"
-    },
-    {
-      "path": "pages/login/index",
-      "type": "page"
-    },
-    {
-      "path": "pages/message/index",
-      "type": "page"
-    },
-    {
-      "path": "pages/publish/index",
-      "type": "page"
-    },
-    {
-      "path": "pages/register/index",
-      "type": "page"
-    },
-    {
-      "path": "pages/role/index",
-      "type": "page"
-    },
-    {
-      "path": "pages/shelf/index",
-      "type": "page"
-    },
-    {
-      "path": "pages/user/index",
-      "type": "page"
-    }
-  ]
+    ]
+  }
 }

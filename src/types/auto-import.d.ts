@@ -84,6 +84,7 @@ declare global {
   const useRouter: typeof import('../hooks/router')['useRouter']
   const useSlots: typeof import('vue')['useSlots']
   const useTemplateRef: typeof import('vue')['useTemplateRef']
+  const useToast: typeof import('../hooks/useToast')['useToast']
   const useUpload: typeof import('../hooks/useUpload')['default']
   const useUpload2: typeof import('../hooks/useUpload2')['default']
   const watch: typeof import('vue')['watch']
@@ -180,6 +181,7 @@ declare module 'vue' {
     readonly useRouter: UnwrapRef<typeof import('../hooks/router')['useRouter']>
     readonly useSlots: UnwrapRef<typeof import('vue')['useSlots']>
     readonly useTemplateRef: UnwrapRef<typeof import('vue')['useTemplateRef']>
+    readonly useToast: UnwrapRef<typeof import('../hooks/useToast')['useToast']>
     readonly useUpload: UnwrapRef<typeof import('../hooks/useUpload')['default']>
     readonly watch: UnwrapRef<typeof import('vue')['watch']>
     readonly watchEffect: UnwrapRef<typeof import('vue')['watchEffect']>

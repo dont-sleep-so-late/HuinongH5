@@ -84,7 +84,7 @@
 
       <!-- 空状态 -->
       <view class="empty" v-if="orderList.length === 0 && !isLoading">
-        <image src="/static/icons/empty-order.png" mode="aspectFit" class="empty-icon" />
+        <image src="" mode="aspectFit" class="empty-icon" />
         <text>暂无相关订单</text>
       </view>
     </scroll-view>

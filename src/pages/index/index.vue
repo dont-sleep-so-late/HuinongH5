@@ -33,11 +33,11 @@
       :indicator-active-color="'#018d71'"
     >
       <swiper-item
-        v-for="(item, index) in bannerList"
-        :key="index"
-        @click="handleBannerClick(item.url)"
+        v-for="item in bannerList"
+        :key="item.id"
+        @click="handleBannerClick(item.linkUrl)"
       >
-        <image :src="item.image" mode="aspectFill" />
+        <image :src="item.imageUrl" mode="aspectFill" />
         <view class="banner-title" v-if="item.title">{{ item.title }}</view>
       </swiper-item>
     </swiper>
@@ -83,21 +83,21 @@
         <view class="sort-wrapper">
           <text
             class="sort-item"
-            :class="{ active: currentSort === 'new' }"
-            @click="handleSort('new')"
+            :class="{ active: sortField === 'time' }"
+            @click="handleSort('time')"
           >
             最新
           </text>
           <text
             class="sort-item"
-            :class="{ active: currentSort === 'sales' }"
+            :class="{ active: sortField === 'sales' }"
             @click="handleSort('sales')"
           >
             销量
           </text>
           <text
             class="sort-item"
-            :class="{ active: currentSort === 'price_asc' || currentSort === 'price_desc' }"
+            :class="{ active: sortField === 'price' }"
             @click="handleSortPrice"
           >
             价格
@@ -130,8 +130,7 @@
                   <text>{{ item.region }}</text>
                 </view>
                 <view class="meta-item">
-                  <wd-icon name="shop" size="24" class="meta-icon" />
-                  <text>{{ item.sellerName }}</text>
+                  <text>{{ item.unit }}/{{ item.weight }}{{ item.unit }}</text>
                 </view>
               </view>
               <view class="price-action">
@@ -151,12 +150,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { getActiveBanners } from '@/services/banner'
-import { getHomeProducts, type Product, type SortType } from '@/services/product'
+import { getHomeBanners } from '@/api/banner'
+import { getProductList } from '@/api/product'
 import { showToast } from '@/utils/toast'
 import { getUserInfo as fetchUserInfo } from '@/services/user'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from '@/hooks/router'
+import type { Banner } from '@/api/banner'
+import type { Product, SortField, SortOrder } from '@/api/product'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -165,79 +166,87 @@ const userStore = useUserStore()
 const searchKeyword = ref('')
 
 // 轮播图数据
-const bannerList = ref<
-  {
-    image: string
-    url: string
-    title: string
-  }[]
->([])
+const bannerList = ref<Banner[]>([])
 
 // 获取轮播图数据
-const getBanners = async () => {
+const fetchBanners = async () => {
   try {
-    const res = await getActiveBanners()
-    if (res.data) {
-      bannerList.value = res.data.map((item) => ({
-        image: item.image,
-        url: item.url,
-        title: item.title,
-      }))
+    const res = await getHomeBanners()
+    if (res.code === 200 && res.data) {
+      // 只显示状态为启用的轮播图，并按照排序顺序排序
+      bannerList.value = res.data
+        .filter((banner) => banner.status === 1)
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
     }
   } catch (error: any) {
     showToast(error.message || '获取轮播图失败')
   }
 }
 
-// 点击轮播图
-const handleBannerClick = (url: string) => {
+// 处理轮播图点击
+const handleBannerClick = (url?: string) => {
   if (url) {
-    uni.navigateTo({ url })
+    // 如果是内部页面链接，使用路由跳转
+    if (url.startsWith('/')) {
+      router.navigate(url)
+    } else {
+      // 外部链接，使用浏览器打开
+      window.open(url)
+    }
   }
 }
 
 // 商品列表数据
 const goodsList = ref<Product[]>([])
 const paging = ref<any>(null)
-const currentSort = ref<SortType>('new')
-const currentCategoryId = ref<number | undefined>(undefined)
+const sortField = ref<SortField>('time')
+const sortOrder = ref<SortOrder>('desc')
 
 // 价格排序图标
 const priceIcon = computed(() => {
-  if (currentSort.value === 'price_asc') return 'icon-arrow-up'
-  if (currentSort.value === 'price_desc') return 'icon-arrow-down'
+  if (sortField.value === 'price' && sortOrder.value === 'asc') {
+    return 'icon-arrow-up'
+  }
+  if (sortField.value === 'price' && sortOrder.value === 'desc') {
+    return 'icon-arrow-down'
+  }
   return 'icon-arrow-up-down'
 })
 
 // 处理排序方式切换
-const handleSort = (sort: SortType) => {
-  if (currentSort.value === sort) return
-  currentSort.value = sort
+const handleSort = (field: SortField) => {
+  if (sortField.value === field) return
+  sortField.value = field
+  sortOrder.value = 'desc'
   paging.value?.reload()
 }
 
 // 处理价格排序
 const handleSortPrice = () => {
-  if (currentSort.value === 'price_asc') {
-    currentSort.value = 'price_desc'
-  } else {
-    currentSort.value = 'price_asc'
-  }
+  sortField.value = 'price'
+  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
   paging.value?.reload()
 }
 
 // 查询商品列表
 const queryList = async (pageNo: number, pageSize: number) => {
   try {
-    const res = await getHomeProducts({
-      pageNum: pageNo,
+    const res = await getProductList({
+      page: pageNo,
       pageSize,
-      categoryId: currentCategoryId.value,
-      sort: currentSort.value,
+      sortField: sortField.value,
+      sortOrder: sortOrder.value,
     })
+
+    if (res.code === 200 && res.data) {
+      return {
+        list: res.data.records,
+        total: res.data.total,
+      }
+    }
     return {
-      list: res.data.records,
-      total: res.data.total,
+      list: [],
+      total: 0,
     }
   } catch (error: any) {
     showToast(error.message || '获取商品列表失败')
@@ -299,7 +308,7 @@ const getUserInfo = async () => {
 
 // 页面加载时获取用户信息
 onMounted(() => {
-  getBanners()
+  fetchBanners()
   if (userStore.isLoggedIn) {
     getUserInfo()
   }
@@ -332,11 +341,9 @@ onMounted(() => {
 }
 
 .banner {
-  height: 360rpx;
-  margin-bottom: 20rpx;
-  overflow: hidden;
-  border-radius: 0 0 30rpx 30rpx;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+  position: relative;
+  width: 100%;
+  height: 400rpx;
 
   image {
     width: 100%;
@@ -351,7 +358,7 @@ onMounted(() => {
     padding: 20rpx;
     font-size: 28rpx;
     color: #fff;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
   }
 }
 
@@ -475,12 +482,11 @@ onMounted(() => {
         &.active {
           color: #018d71;
         }
-      }
 
-      .iconfont {
-        margin-left: 8rpx;
-        font-size: 24rpx;
-        color: #666;
+        .iconfont {
+          margin-left: 8rpx;
+          font-size: 24rpx;
+        }
       }
     }
   }

@@ -2,20 +2,29 @@
   <view class="user-page">
     <!-- 用户信息区域 -->
     <view class="user-header">
-      <view class="user-info">
+      <view class="user-info" @click="handleEditProfile">
         <image
           :src="userInfo?.avatar || '/static/images/Ayo.png'"
           class="avatar"
           mode="aspectFill"
         />
         <view class="info">
-          <text class="nickname">{{ userInfo?.nickname || '未登录' }}</text>
+          <text class="nickname">{{ userInfo?.nickname || userInfo?.username || '未登录' }}</text>
           <text class="phone" v-if="userInfo?.phone">{{ userInfo.phone }}</text>
+          <text class="verify-status" v-if="userInfo?.role === 'seller'">
+            {{ userInfo.verified ? '已认证' : '未认证' }}
+          </text>
         </view>
       </view>
       <view class="settings" @click="handleSettings">
         <text class="iconfont icon-settings">设置</text>
       </view>
+    </view>
+
+    <!-- 卖家认证提示 -->
+    <view v-if="userInfo?.role === 'seller' && !userInfo.verified" class="verify-tip">
+      <text>请完成实名认证，开通店铺功能</text>
+      <wd-button type="primary" size="small" @click="handleVerify">去认证</wd-button>
     </view>
 
     <!-- 数据统计 -->
@@ -117,19 +126,19 @@
       </view>
       <view class="farm-actions">
         <view class="action-item" @click="handleFarmAction('weeding')">
-          <image src="/static/icons/farm/weeding.png" mode="aspectFit" />
+          <image src="" mode="aspectFit" />
           <text>除草</text>
         </view>
         <view class="action-item" @click="handleFarmAction('watering')">
-          <image src="/static/icons/farm/watering.png" mode="aspectFit" />
+          <image src="" mode="aspectFit" />
           <text>浇水</text>
         </view>
         <view class="action-item" @click="handleFarmAction('fertilizing')">
-          <image src="/static/icons/farm/fertilizing.png" mode="aspectFit" />
+          <image src="  " mode="aspectFit" />
           <text>施肥</text>
         </view>
         <view class="action-item" @click="handleFarmAction('harvesting')">
-          <image src="/static/icons/farm/harvesting.png" mode="aspectFit" />
+          <image src="" mode="aspectFit" />
           <text>收获</text>
         </view>
       </view>
@@ -147,8 +156,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/utils/toast'
-import { getUserInfo } from '@/services/user'
-import { logout } from '@/services/auth'
+import { getUserInfo } from '@/api/user'
+import { logout } from '@/api/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -226,14 +235,23 @@ const handleLogout = async () => {
 
 // 编辑个人信息
 const handleEditProfile = () => {
+  if (!userStore.isLoggedIn) {
+    router.navigate('/pages/login/index')
+    return
+  }
   router.navigate('/pages-sub/user/profile')
+}
+
+// 去认证
+const handleVerify = () => {
+  router.navigate('/pages-sub/user/verify')
 }
 
 // 获取用户数据
 const getUserData = async () => {
   try {
     const res = await getUserInfo()
-    if (res.data) {
+    if (res.code === 200) {
       // 更新用户信息
       userStore.updateUserInfo(res.data)
       // 初始化统计数据
@@ -483,6 +501,36 @@ onMounted(() => {
         color: #666;
       }
     }
+  }
+}
+
+.verify-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 40rpx;
+  margin: 20rpx;
+  font-size: 28rpx;
+  color: #ff6b6b;
+  background-color: #fff;
+  border-radius: 12rpx;
+
+  .wd-button {
+    margin-left: 20rpx;
+  }
+}
+
+.verify-status {
+  display: inline-block;
+  padding: 4rpx 12rpx;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #fff;
+  background-color: #018d71;
+  border-radius: 4rpx;
+
+  &.unverified {
+    background-color: #ff6b6b;
   }
 }
 </style>

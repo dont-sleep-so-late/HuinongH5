@@ -35,7 +35,7 @@ export interface UserInfo {
 
 // 获取用户信息
 export const getUserInfo = () => {
-  return http.get<ApiResponse<UserInfo>>('/api/user/info')
+  return http.get<ApiResponse<UserInfo>>('/user/info')
 }
 
 // 更新用户信息
@@ -46,7 +46,7 @@ export interface UpdateUserInfoParams {
 }
 
 export const updateUserInfo = (data: UpdateUserInfoParams) => {
-  return http.put<ApiResponse>('/api/user/info', data)
+  return http.put<ApiResponse>('/user/info', data)
 }
 
 // 修改密码
@@ -56,7 +56,7 @@ export interface UpdatePasswordParams {
 }
 
 export const updatePassword = (data: UpdatePasswordParams) => {
-  return http.put<ApiResponse>('/api/user/password', data)
+  return http.put<ApiResponse>('/user/password', data)
 }
 
 // 头像上传响应数据
@@ -68,7 +68,7 @@ interface AvatarResponse {
 export const updateAvatar = async (filePath: string) => {
   return new Promise<ApiResponse<AvatarResponse>>((resolve, reject) => {
     uni.uploadFile({
-      url: `${http.config.baseURL}/api/user/avatar`,
+      url: `${http.config.baseURL}/user/avatar`,
       filePath,
       name: 'file',
       header: {
@@ -97,7 +97,7 @@ export const updateAvatar = async (filePath: string) => {
 export const uploadFile = async (filePath: string) => {
   return new Promise<{ url: string }>((resolve, reject) => {
     uni.uploadFile({
-      url: `${http.config.baseURL}/api/upload`,
+      url: `${http.config.baseURL}/upload`,
       filePath,
       name: 'file',
       header: {
