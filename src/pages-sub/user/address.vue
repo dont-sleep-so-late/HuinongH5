@@ -23,12 +23,12 @@
         >
           <view class="info">
             <view class="user-info">
-              <text class="name">{{ item.receiverName }}</text>
-              <text class="phone">{{ item.receiverPhone }}</text>
+              <text class="name">{{ item.name }}</text>
+              <text class="phone">{{ item.phone }}</text>
               <text v-if="item.isDefault" class="default-tag">默认</text>
             </view>
             <view class="address">
-              {{ item.province }}{{ item.city }}{{ item.district }}{{ item.detailAddress }}
+              {{ item.province }}{{ item.city }}{{ item.district }}{{ item.detail }}
             </view>
           </view>
           <view class="actions">
@@ -62,37 +62,58 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from '@/hooks/router'
-import type { AddressInfo } from '@/types/address'
-import { addressService } from '@/services/address'
+import { showToast } from '@/utils/toast'
+import { getAddressList, deleteAddress, setDefaultAddress } from '@/api/address'
+import type { AddressInfo } from '@/api/address'
+import type { ApiResponse } from '@/types/api'
 
 const router = useRouter()
 
 // 地址列表
 const addressList = ref<AddressInfo[]>([])
+const loading = ref(false)
 
 // 是否从订单页面进入
 const isFromOrder = ref(false)
 
 // 获取地址列表
-const loadAddressList = async () => {
+const fetchAddressList = async () => {
   try {
-    const { data } = await addressService.list()
-    addressList.value = data
+    loading.value = true
+    const res = await getAddressList()
+    if (res.code === 200 && Array.isArray(res.data)) {
+      addressList.value = res.data
+    } else {
+      addressList.value = []
+    }
   } catch (error: any) {
-    uni.showToast({
-      title: error.message || '获取地址列表失败',
-      icon: 'none',
-    })
+    showToast(error.message || '获取地址列表失败')
+    addressList.value = []
+  } finally {
+    loading.value = false
   }
 }
 
 // 选择地址
 const handleSelect = (item: AddressInfo) => {
   if (isFromOrder.value) {
-    uni.$emit('addressSelected', item)
-    router.back()
+    // 发送选择的地址信息给订单页面
+    uni.$emit('onAddressSelect', {
+      id: item.id,
+      name: item.name,
+      phone: item.phone,
+      province: item.province,
+      city: item.city,
+      district: item.district,
+      detail: item.detail,
+      fullAddress: `${item.province}${item.city}${item.district}${item.detail}`,
+    })
+    showToast('地址选择成功')
+    setTimeout(() => {
+      router.back()
+    }, 500)
   }
 }
 
@@ -113,18 +134,14 @@ const handleSetDefault = async (item: AddressInfo) => {
       title: '提示',
       content: '确定要将该地址设为默认地址吗？',
     })
-    await addressService.setDefault(item.id)
-    uni.showToast({
-      title: '设置成功',
-      icon: 'success',
-    })
-    loadAddressList()
+    const res = await setDefaultAddress(item.id)
+    if (res.code === 200) {
+      showToast('设置成功')
+      fetchAddressList()
+    }
   } catch (error: any) {
     if (error.errMsg !== 'showModal:fail cancel') {
-      uni.showToast({
-        title: error.message || '设置失败',
-        icon: 'none',
-      })
+      showToast(error.message || '设置失败')
     }
   }
 }
@@ -136,18 +153,14 @@ const handleDelete = async (item: AddressInfo) => {
       title: '提示',
       content: '确定要删除该地址吗？',
     })
-    await addressService.delete(item.id)
-    uni.showToast({
-      title: '删除成功',
-      icon: 'success',
-    })
-    loadAddressList()
+    const res = await deleteAddress(item.id)
+    if (res.code === 200) {
+      showToast('删除成功')
+      fetchAddressList()
+    }
   } catch (error: any) {
     if (error.errMsg !== 'showModal:fail cancel') {
-      uni.showToast({
-        title: error.message || '删除失败',
-        icon: 'none',
-      })
+      showToast(error.message || '删除失败')
     }
   }
 }
@@ -156,11 +169,19 @@ onMounted(() => {
   // 判断是否从订单页面进入
   const pages = getCurrentPages()
   const prevPage = pages[pages.length - 2]
-  if (prevPage?.route?.includes('/pages-sub/order/create')) {
+  if (prevPage?.route?.includes('pages-sub/order/create')) {
     isFromOrder.value = true
   }
 
-  loadAddressList()
+  // 监听地址列表变化事件
+  uni.$on('addressListChanged', fetchAddressList)
+
+  fetchAddressList()
+})
+
+// 在页面卸载时移除事件监听
+onUnmounted(() => {
+  uni.$off('addressListChanged', fetchAddressList)
 })
 </script>
 

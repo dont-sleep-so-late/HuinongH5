@@ -2,175 +2,89 @@
   <view class="container">
     <!-- 搜索栏 -->
     <view class="search-bar">
-      <wd-input
-        v-model="searchKeyword"
-        placeholder="搜索消息内容"
-        prefix-icon="search"
-        clearable
-        @input="handleSearch"
-      />
+      <uni-search-bar v-model="searchKeyword" placeholder="搜索消息内容" @input="handleSearch" />
     </view>
 
-    <!-- 消息类型切换 -->
-    <wd-tabs v-model="activeTab" sticky>
-      <wd-tab title="智能助手" name="robot">
-        <view class="tab-header">
-          <text class="unread-count" v-if="robotUnreadCount > 0">{{ robotUnreadCount }}条未读</text>
-          <text class="clear-btn" @click="clearRobotUnread">全部已读</text>
-        </view>
-        <view class="message-list" v-if="filteredRobotMessages.length > 0">
-          <view
-            class="message-item"
-            v-for="item in filteredRobotMessages"
-            :key="item.id"
-            :class="{ unread: !item.isRead }"
-            @click="markMessageRead(item)"
-          >
-            <view class="message-header">
-              <view class="sender-info">
-                <image src="" class="sender-avatar" mode="aspectFill" />
-                <text class="sender-name">智能助手</text>
-              </view>
-              <text class="message-time">{{ item.time }}</text>
+    <!-- 消息列表 -->
+    <z-paging ref="paging" v-model="chatSessions" @query="queryChatSessions">
+      <template v-if="filteredSessions.length > 0">
+        <view
+          class="chat-item"
+          v-for="item in filteredSessions"
+          :key="item.id"
+          @click="navigateToChat(item)"
+          @longpress="showActions(item)"
+        >
+          <view class="avatar">
+            <image :src="item.targetAvatar || '/static/avatar/default.png'" mode="aspectFill" />
+            <view class="badge" v-if="item.unreadCount > 0">{{ item.unreadCount }}</view>
+          </view>
+          <view class="content">
+            <view class="header">
+              <text class="name">{{ item.targetUsername }}</text>
+              <text class="time">{{ formatTime(item.lastMessageTime) }}</text>
             </view>
-            <view class="message-content">
-              <text class="message-title">{{ item.title }}</text>
-              <text class="message-text">{{ item.content }}</text>
+            <view class="message">
+              <text class="text">{{ item.lastMessage }}</text>
+              <text class="status" v-if="item.status === 0">已关闭</text>
             </view>
           </view>
         </view>
-        <view class="empty-message" v-else>
-          <image src="" mode="aspectFit" class="empty-icon" />
-          <text class="empty-text">{{ searchKeyword ? '未找到相关消息' : '暂无系统消息' }}</text>
-        </view>
-      </wd-tab>
+      </template>
+      <template v-else>
+        <uni-empty text="暂无聊天记录" />
+      </template>
+    </z-paging>
 
-      <wd-tab title="店铺消息" name="shop">
-        <view class="tab-header">
-          <text class="unread-count" v-if="shopUnreadCount > 0">{{ shopUnreadCount }}条未读</text>
-          <text class="clear-btn" @click="clearShopUnread">全部已读</text>
-        </view>
-        <view class="chat-list" v-if="filteredShopMessages.length > 0">
-          <view
-            class="chat-item"
-            v-for="shop in filteredShopMessages"
-            :key="shop.id"
-            @click="navigateToChat(shop)"
-          >
-            <view class="shop-avatar">
-              <image :src="shop.avatar" mode="aspectFill" />
-              <view class="unread-badge" v-if="shop.unreadCount > 0">{{ shop.unreadCount }}</view>
-            </view>
-            <view class="chat-info">
-              <view class="chat-header">
-                <text class="shop-name">{{ shop.name }}</text>
-                <text class="last-time">{{ shop.lastMessageTime }}</text>
-              </view>
-              <view class="chat-content">
-                <text class="last-message">{{ shop.lastMessage }}</text>
-                <view class="message-status" v-if="shop.status">{{ shop.status }}</view>
-              </view>
-            </view>
-          </view>
-        </view>
-        <view class="empty-message" v-else>
-          <image src="" mode="aspectFit" class="empty-icon" />
-          <text class="empty-text">{{ searchKeyword ? '未找到相关店铺' : '暂无店铺消息' }}</text>
-        </view>
-      </wd-tab>
-    </wd-tabs>
+    <!-- 操作菜单 -->
+    <uni-popup ref="popup" type="bottom">
+      <uni-list>
+        <uni-list-item
+          v-for="action in actions"
+          :key="action.value"
+          :title="action.name"
+          @click="handleAction(action)"
+        />
+      </uni-list>
+    </uni-popup>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
+import { showToast } from '@/utils/toast'
+import { formatTime } from '@/utils/time'
+import { getChatSessions, deleteChatMessages, markMessagesRead, getUnreadCount } from '@/api/chat'
+import type { ChatSession } from '@/types/chat'
 
 const router = useRouter()
 const searchKeyword = ref('')
-const activeTab = ref('robot')
+const popup = ref()
+const currentChat = ref<ChatSession | null>(null)
 
-// 机器人消息数据
-const robotMessages = ref([
-  {
-    id: 1,
-    title: '订单发货提醒',
-    content: '您购买的有机大米已发货，预计3天内送达，请注意查收。',
-    time: '2024-03-14 15:30',
-    isRead: false,
-  },
-  {
-    id: 2,
-    title: '农场收获提醒',
-    content: '您的农场白菜已经成熟，快去收获吧！',
-    time: '2024-03-14 14:00',
-    isRead: false,
-  },
-  {
-    id: 3,
-    title: '新功能上线通知',
-    content: '智能农业数据分析功能已上线，欢迎体验使用！',
-    time: '2024-03-10 10:00',
-    isRead: true,
-  },
-])
+// 分页组件引用
+const paging = ref()
 
-// 店铺消息数据
-const shopMessages = ref([
-  {
-    id: 1,
-    name: '有机蔬菜专营店',
-    avatar: '/static/shops/shop1.png',
-    lastMessage: '您好，您购买的蔬菜已经采摘完成，预计明天发货',
-    lastMessageTime: '15:30',
-    unreadCount: 2,
-    status: '订单处理中',
-  },
-  {
-    id: 2,
-    name: '阳光果园',
-    avatar: '/static/shops/shop2.png',
-    lastMessage: '水果已经发货，请注意查收',
-    lastMessageTime: '昨天',
-    unreadCount: 0,
-    status: '已发货',
-  },
-  {
-    id: 3,
-    name: '东北大米直供',
-    avatar: '/static/shops/shop3.png',
-    lastMessage: '感谢您的购买，欢迎下次光临',
-    lastMessageTime: '星期一',
-    unreadCount: 1,
-    status: '交易完成',
-  },
-])
+// 会话列表数据
+const chatSessions = ref<ChatSession[]>([])
 
-// 筛选后的机器人消息
-const filteredRobotMessages = computed(() => {
-  if (!searchKeyword.value) return robotMessages.value
+// 操作菜单
+const actions = [
+  { name: '标记已读', value: 'read' },
+  { name: '删除会话', value: 'delete' },
+]
+
+// 筛选后的会话列表
+const filteredSessions = computed(() => {
+  if (!searchKeyword.value) return chatSessions.value
   const keyword = searchKeyword.value.toLowerCase()
-  return robotMessages.value.filter(
-    (msg) =>
-      msg.title.toLowerCase().includes(keyword) || msg.content.toLowerCase().includes(keyword),
+  return chatSessions.value.filter(
+    (session) =>
+      session.targetUsername.toLowerCase().includes(keyword) ||
+      session.lastMessage.toLowerCase().includes(keyword),
   )
 })
-
-// 筛选后的店铺消息
-const filteredShopMessages = computed(() => {
-  if (!searchKeyword.value) return shopMessages.value
-  const keyword = searchKeyword.value.toLowerCase()
-  return shopMessages.value.filter(
-    (shop) =>
-      shop.name.toLowerCase().includes(keyword) || shop.lastMessage.toLowerCase().includes(keyword),
-  )
-})
-
-// 未读消息数量
-const robotUnreadCount = computed(() => robotMessages.value.filter((msg) => !msg.isRead).length)
-const shopUnreadCount = computed(() =>
-  shopMessages.value.reduce((total, shop) => total + shop.unreadCount, 0),
-)
 
 // 处理搜索
 const handleSearch = () => {
@@ -181,46 +95,92 @@ const handleSearch = () => {
   })
 }
 
-// 标记消息已读
-const markMessageRead = (message: any) => {
-  message.isRead = true
-  // 跳转到消息详情
-  router.navigate(`/pages-sub/chat/detail?id=${message.id}&name=智能助手&type=robot`)
-}
-
-// 清除机器人消息未读状态
-const clearRobotUnread = () => {
-  robotMessages.value.forEach((msg) => (msg.isRead = true))
-}
-
-// 清除店铺消息未读状态
-const clearShopUnread = () => {
-  shopMessages.value.forEach((shop) => (shop.unreadCount = 0))
+// 查询会话列表
+const queryChatSessions = async (pageNum: number, pageSize: number) => {
+  try {
+    const res = await getChatSessions({ pageNum, pageSize })
+    if (res.code === 200 && res.data) {
+      paging.value.complete(res.data.records)
+    }
+  } catch (error: any) {
+    showToast(error.message || '获取数据失败')
+    paging.value.complete(false)
+  }
 }
 
 // 跳转到聊天详情
-const navigateToChat = (shop: any) => {
-  shop.unreadCount = 0
-  router.navigate(
-    `/pages-sub/chat/detail?id=${shop.id}&name=${encodeURIComponent(shop.name)}&type=shop`,
-  )
+const navigateToChat = (item: ChatSession) => {
+  router.navigate('/pages-sub/chat/detail', {
+    targetId: item.targetUserId,
+    name: item.targetUsername,
+    role: item.targetRole,
+  })
 }
+
+// 显示操作菜单
+const showActions = (item: ChatSession) => {
+  currentChat.value = item
+  popup.value?.open()
+}
+
+// 处理操作
+const handleAction = async (action: { name: string; value: string }) => {
+  if (!currentChat.value) return
+  popup.value?.close()
+
+  try {
+    switch (action.value) {
+      case 'read': {
+        await markMessagesRead(currentChat.value.targetUserId)
+        showToast('标记已读成功')
+        paging.value?.reload()
+        break
+      }
+      case 'delete': {
+        const res = await uni.showModal({
+          title: '提示',
+          content: '确定要删除该会话吗？',
+        })
+        if (res.confirm) {
+          await deleteChatMessages(currentChat.value.targetUserId)
+          showToast('删除成功')
+          paging.value?.reload()
+        }
+        break
+      }
+    }
+  } catch (error: any) {
+    showToast(error.message || '操作失败')
+  }
+}
+
+// 获取未读消息总数
+const updateUnreadBadge = async () => {
+  try {
+    const res = await getUnreadCount()
+    if (res.code === 200 && res.data > 0) {
+      // 设置 TabBar 的未读数
+      uni.setTabBarBadge({
+        index: 2, // 消息 Tab 的索引
+        text: String(res.data),
+      })
+    } else {
+      uni.removeTabBarBadge({
+        index: 2,
+      })
+    }
+  } catch (error) {
+    console.error('获取未读消息数失败', error)
+  }
+}
+
+// 页面显示时更新未读数
+onMounted(() => {
+  updateUnreadBadge()
+})
 </script>
 
 <style lang="scss">
-.ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.multi-ellipsis {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-
 .container {
   min-height: 100vh;
   padding-bottom: env(safe-area-inset-bottom);
@@ -235,211 +195,80 @@ const navigateToChat = (shop: any) => {
   background-color: #fff;
 }
 
-.tab-header {
+.chat-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 20rpx;
   background-color: #fff;
+  border-bottom: 1px solid #f5f5f5;
 
-  .unread-count {
-    font-size: 24rpx;
-    color: #999;
+  .avatar {
+    position: relative;
+    margin-right: 20rpx;
+
+    image {
+      width: 100rpx;
+      height: 100rpx;
+      border-radius: 50%;
+    }
+
+    .badge {
+      position: absolute;
+      top: -6rpx;
+      right: -6rpx;
+      min-width: 32rpx;
+      height: 32rpx;
+      padding: 0 8rpx;
+      font-size: 20rpx;
+      line-height: 32rpx;
+      color: #fff;
+      text-align: center;
+      background-color: #ff4d4f;
+      border-radius: 16rpx;
+    }
   }
 
-  .clear-btn {
-    font-size: 24rpx;
-    color: #018d71;
-  }
-}
+  .content {
+    flex: 1;
+    overflow: hidden;
 
-.message-list {
-  .message-item {
-    display: flex;
-    flex-direction: column;
-    padding: 30rpx 20rpx;
-    background-color: #fff;
-    border-bottom: 1rpx solid #f5f5f5;
-
-    .message-header {
+    .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 16rpx;
+      margin-bottom: 8rpx;
 
-      .sender-info {
-        display: flex;
-        align-items: center;
-
-        .sender-avatar {
-          width: 80rpx;
-          height: 80rpx;
-          margin-right: 20rpx;
-          border-radius: 50%;
-        }
-
-        .sender-name {
-          font-size: 28rpx;
-          font-weight: bold;
-          color: #333;
-        }
+      .name {
+        font-size: 32rpx;
+        font-weight: bold;
+        color: #333;
       }
 
-      .message-time {
+      .time {
         font-size: 24rpx;
         color: #999;
       }
     }
 
-    .message-content {
-      .message-title {
-        display: block;
-        margin-bottom: 8rpx;
+    .message {
+      display: flex;
+      align-items: center;
+
+      .text {
+        flex: 1;
+        margin-right: 20rpx;
         overflow: hidden;
         font-size: 28rpx;
-        font-weight: bold;
-        color: #333;
+        color: #666;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
 
-      .message-text {
-        display: -webkit-box;
-        overflow: hidden;
-        font-size: 26rpx;
-        color: #666;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
+      .status {
+        font-size: 24rpx;
+        color: #999;
       }
     }
-
-    &.unread {
-      position: relative;
-
-      &::after {
-        position: absolute;
-        top: 20rpx;
-        right: 20rpx;
-        width: 16rpx;
-        height: 16rpx;
-        content: '';
-        background-color: #ff6b6b;
-        border-radius: 50%;
-      }
-    }
-  }
-}
-
-.chat-list {
-  .chat-item {
-    display: flex;
-    padding: 30rpx 20rpx;
-    background-color: #fff;
-    border-bottom: 1rpx solid #f5f5f5;
-
-    .shop-avatar {
-      position: relative;
-      margin-right: 20rpx;
-
-      image {
-        width: 80rpx;
-        height: 80rpx;
-        border-radius: 50%;
-      }
-
-      .unread-badge {
-        position: absolute;
-        top: -8rpx;
-        right: -8rpx;
-        min-width: 32rpx;
-        height: 32rpx;
-        padding: 0 8rpx;
-        font-size: 20rpx;
-        line-height: 32rpx;
-        color: #fff;
-        text-align: center;
-        background-color: #ff6b6b;
-        border-radius: 16rpx;
-      }
-    }
-
-    .chat-info {
-      flex: 1;
-      overflow: hidden;
-
-      .chat-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 12rpx;
-
-        .shop-name {
-          overflow: hidden;
-          font-size: 28rpx;
-          font-weight: bold;
-          color: #333;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .last-time {
-          font-size: 24rpx;
-          color: #999;
-        }
-      }
-
-      .chat-content {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-
-        .last-message {
-          flex: 1;
-          margin-right: 20rpx;
-          overflow: hidden;
-          font-size: 26rpx;
-          color: #666;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .message-status {
-          font-size: 24rpx;
-          color: #999;
-        }
-      }
-    }
-  }
-}
-
-.empty-message {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 100rpx 0;
-
-  .empty-icon {
-    width: 200rpx;
-    height: 200rpx;
-    margin-bottom: 20rpx;
-  }
-
-  .empty-text {
-    font-size: 28rpx;
-    color: #999;
-  }
-}
-
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20rpx;
-  font-size: 24rpx;
-  color: #999;
-
-  .wd-loading {
-    margin-right: 10rpx;
   }
 }
 </style>

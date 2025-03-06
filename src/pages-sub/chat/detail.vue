@@ -32,44 +32,48 @@
           :key="message.id"
           :id="'msg-' + message.id"
           class="message-item"
-          :class="{ 'message-self': message.isSelf }"
+          :class="{ 'message-self': message.senderId === currentUserId }"
         >
           <!-- 时间分割线 -->
-          <view class="time-divider" v-if="message.showTime">
-            <text>{{ message.time }}</text>
+          <view class="time-divider" v-if="shouldShowTime(message)">
+            <text>{{ formatTime(message.createdTime) }}</text>
           </view>
 
           <!-- 消息气泡 -->
           <view class="message-content">
-            <image v-if="!message.isSelf" :src="chatInfo.avatar" class="avatar" mode="aspectFill" />
-            <view class="bubble" :class="{ 'bubble-self': message.isSelf }">
+            <image
+              v-if="message.senderId !== currentUserId"
+              :src="message.senderAvatar"
+              class="avatar"
+              mode="aspectFill"
+            />
+            <view class="bubble" :class="{ 'bubble-self': message.senderId === currentUserId }">
               <!-- 文本消息 -->
-              <text v-if="message.type === 'text'" class="text">{{ message.content }}</text>
+              <text v-if="message.messageType === 'text'" class="text">{{ message.content }}</text>
               <!-- 图片消息 -->
               <image
-                v-else-if="message.type === 'image'"
+                v-else-if="message.messageType === 'image'"
                 :src="message.content"
                 class="image-content"
                 mode="widthFix"
                 @click="previewImage(message.content)"
               />
-              <!-- 订单卡片 -->
+              <!-- 商品卡片 -->
               <view
-                v-else-if="message.type === 'order'"
-                class="order-card"
-                @click="viewOrder(message.content)"
+                v-else-if="message.messageType === 'product' && message.product"
+                class="product-card"
+                @click="viewProduct(message.product)"
               >
-                <view class="order-info">
-                  <text class="order-title">订单信息</text>
-                  <text class="order-id">订单号：{{ message.content.orderId }}</text>
-                  <text class="order-status">{{ message.content.status }}</text>
+                <view class="product-info">
+                  <text class="product-name">{{ message.product.name }}</text>
+                  <text class="product-price">¥{{ message.product.price }}</text>
                 </view>
-                <image :src="message.content.image" mode="aspectFill" class="order-image" />
+                <image :src="message.product.image" mode="aspectFill" class="product-image" />
               </view>
             </view>
             <image
-              v-if="message.isSelf"
-              src="/static/avatar/default.png"
+              v-if="message.senderId === currentUserId"
+              :src="message.senderAvatar"
               class="avatar"
               mode="aspectFill"
             />
@@ -83,7 +87,7 @@
       <view class="input-toolbar">
         <text class="iconfont icon-emoji" @click="toggleEmojiPanel"></text>
         <text class="iconfont icon-image" @click="chooseImage"></text>
-        <text class="iconfont icon-order" @click="showOrderList"></text>
+        <text class="iconfont icon-goods" @click="showProductList"></text>
       </view>
       <view class="input-box">
         <textarea
@@ -95,9 +99,9 @@
           :hold-keyboard="true"
           @focus="onInputFocus"
           @blur="onInputBlur"
-          @confirm="sendMessage"
+          @confirm="sendChatMessage"
         />
-        <view class="send-btn" :class="{ active: inputMessage.trim() }" @click="sendMessage">
+        <view class="send-btn" :class="{ active: inputMessage.trim() }" @click="sendChatMessage">
           发送
         </view>
       </view>
@@ -123,53 +127,37 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
+import { formatTime } from '@/utils/time'
+import { getChatMessages, sendMessage, markMessagesRead } from '@/api/chat'
+import { useUserStore } from '@/stores/user'
+import type { ChatMessage, MessageType, ProductMessage } from '@/types/chat'
+
+interface ChatInfo {
+  id: number
+  name: string
+  avatar: string
+  role: 'buyer' | 'seller'
+}
 
 const router = useRouter()
+const userStore = useUserStore()
+
+// 当前用户ID
+const currentUserId = computed(() => userStore.userInfo?.id || 0)
 
 // 聊天信息
-const chatInfo = ref({
-  id: '',
+const chatInfo = ref<ChatInfo>({
+  id: 0,
   name: '',
   avatar: '',
-  type: 'shop', // shop 或 robot
+  role: 'seller',
 })
 
 // 计算标题
-const chatTitle = computed(() => {
-  return chatInfo.value.type === 'shop' ? chatInfo.value.name : '智能助手'
-})
+const chatTitle = computed(() => chatInfo.value.name)
 
 // 消息列表
-const messages = ref([
-  {
-    id: 1,
-    type: 'text',
-    content: '您好，请问有什么可以帮您？',
-    time: '10:00',
-    showTime: true,
-    isSelf: false,
-  },
-  {
-    id: 2,
-    type: 'text',
-    content: '我想问一下这个商品的库存情况',
-    time: '10:01',
-    showTime: false,
-    isSelf: true,
-  },
-  {
-    id: 3,
-    type: 'order',
-    content: {
-      orderId: '202403150001',
-      status: '待发货',
-      image: '/static/goods/default.jpg',
-    },
-    time: '10:02',
-    showTime: true,
-    isSelf: false,
-  },
-])
+const messages = ref<ChatMessage[]>([])
 
 // 输入相关
 const inputMessage = ref('')
@@ -184,6 +172,17 @@ const lastMessageId = computed(() => {
   const lastMessage = messages.value[messages.value.length - 1]
   return lastMessage ? 'msg-' + lastMessage.id : ''
 })
+
+// 判断是否需要显示时间
+const shouldShowTime = (message: ChatMessage) => {
+  const index = messages.value.findIndex((m) => m.id === message.id)
+  if (index === 0) return true
+
+  const prevMessage = messages.value[index - 1]
+  const currentTime = new Date(message.createdTime).getTime()
+  const prevTime = new Date(prevMessage.createdTime).getTime()
+  return currentTime - prevTime > 5 * 60 * 1000 // 5分钟显示一次时间
+}
 
 // 处理输入框焦点
 const onInputFocus = (e: any) => {
@@ -214,24 +213,24 @@ const insertEmoji = (emoji: string) => {
 const chooseImage = () => {
   uni.chooseImage({
     count: 1,
-    success: (res) => {
-      const tempFilePath = res.tempFilePaths[0]
-      sendImageMessage(tempFilePath)
+    sizeType: ['compressed'],
+    success: async (res) => {
+      try {
+        const tempFilePath = res.tempFilePaths[0]
+        const uploadRes = await uni.uploadFile({
+          url: '/api/upload',
+          filePath: tempFilePath,
+          name: 'file',
+        })
+        const data = JSON.parse(uploadRes.data)
+        if (data.code === 200 && data.data) {
+          await sendChatMessage('image', data.data.url)
+        }
+      } catch (error: any) {
+        showToast(error.message || '发送失败')
+      }
     },
   })
-}
-
-// 发送图片消息
-const sendImageMessage = (imagePath: string) => {
-  messages.value.push({
-    id: Date.now(),
-    type: 'image',
-    content: imagePath,
-    time: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
-    showTime: shouldShowTime(),
-    isSelf: true,
-  })
-  scrollToBottom()
 }
 
 // 预览图片
@@ -241,14 +240,14 @@ const previewImage = (url: string) => {
   })
 }
 
-// 显示订单列表
-const showOrderList = () => {
-  showToast('订单列表开发中')
+// 查看商品详情
+const viewProduct = (product: ProductMessage) => {
+  router.navigate('/pages-sub/goods/detail', { id: product.id })
 }
 
-// 查看订单详情
-const viewOrder = (order: any) => {
-  router.navigate('/pages-sub/order/detail?id=' + order.orderId)
+// 显示商品列表
+const showProductList = () => {
+  showToast('商品列表开发中')
 }
 
 // 显示更多操作
@@ -272,77 +271,67 @@ const showMore = () => {
 }
 
 // 清空聊天记录
-const clearChat = () => {
-  uni.showModal({
-    title: '提示',
-    content: '确定要清空聊天记录吗？',
-    success: (res) => {
-      if (res.confirm) {
-        messages.value = []
-        showToast('清空成功')
-      }
-    },
-  })
+const clearChat = async () => {
+  try {
+    const res = await uni.showModal({
+      title: '提示',
+      content: '确定要清空聊天记录吗？',
+    })
+    if (res.confirm) {
+      messages.value = []
+      showToast('清空成功')
+    }
+  } catch (error) {
+    console.error('清空聊天记录失败', error)
+  }
 }
 
 // 投诉商家
 const report = () => {
-  router.navigate('/pages-sub/user/report?id=' + chatInfo.value.id)
+  router.navigate('/pages-sub/user/report', {
+    targetId: chatInfo.value.id,
+  })
 }
 
 // 加入黑名单
-const block = () => {
-  uni.showModal({
-    title: '提示',
-    content: '确定要将该商家加入黑名单吗？',
-    success: (res) => {
-      if (res.confirm) {
-        showToast('已加入黑名单')
-        router.back()
-      }
-    },
-  })
-}
-
-// 判断是否需要显示时间
-const shouldShowTime = () => {
-  const lastMessage = messages.value[messages.value.length - 1]
-  if (!lastMessage) return true
-
-  const lastTime = new Date(lastMessage.time).getTime()
-  const currentTime = Date.now()
-  return currentTime - lastTime > 5 * 60 * 1000 // 5分钟显示一次时间
+const block = async () => {
+  try {
+    const res = await uni.showModal({
+      title: '提示',
+      content: '确定要将该商家加入黑名单吗？',
+    })
+    if (res.confirm) {
+      showToast('已加入黑名单')
+      router.back()
+    }
+  } catch (error) {
+    console.error('加入黑名单失败', error)
+  }
 }
 
 // 发送消息
-const sendMessage = () => {
-  if (!inputMessage.value.trim()) return
+const sendChatMessage = async (messageType: MessageType = 'text', content?: string) => {
+  const messageContent = content || inputMessage.value.trim()
+  if (!messageContent) return
 
-  messages.value.push({
-    id: Date.now(),
-    type: 'text',
-    content: inputMessage.value,
-    time: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
-    showTime: shouldShowTime(),
-    isSelf: true,
-  })
-
-  // 清空输入框
-  inputMessage.value = ''
-  scrollToBottom()
-
-  // 模拟回复
-  setTimeout(() => {
-    messages.value.push({
-      id: Date.now(),
-      type: 'text',
-      content: chatInfo.value.type === 'shop' ? '好的，稍等我查询一下' : '正在为您查询相关信息...',
-      time: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
-      showTime: shouldShowTime(),
-      isSelf: false,
+  try {
+    const res = await sendMessage({
+      receiverId: chatInfo.value.id,
+      content: messageContent,
+      messageType,
     })
-    scrollToBottom()
-  }, 1000)
+
+    if (res.code === 200 && res.data) {
+      messages.value.push(res.data)
+      // 清空输入框
+      if (messageType === 'text') {
+        inputMessage.value = ''
+      }
+      scrollToBottom()
+    }
+  } catch (error: any) {
+    showToast(error.message || '发送失败')
+  }
 }
 
 // 滚动到底部
@@ -366,44 +355,47 @@ const loadMoreHistory = async () => {
   isLoading.value = true
 
   try {
-    // TODO: 调用加载历史记录接口
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    // 模拟加载更多消息
-    const oldMessages = [...messages.value]
-    messages.value = [
-      {
-        id: Date.now() - 1000,
-        type: 'text',
-        content: '这是更早的消息',
-        time: '09:30',
-        showTime: true,
-        isSelf: false,
-      },
-      ...oldMessages,
-    ]
-  } catch (error) {
-    showToast('加载失败')
+    const res = await getChatMessages(chatInfo.value.id, {
+      pageNum: Math.ceil(messages.value.length / 20) + 1,
+      pageSize: 20,
+    })
+    if (res.code === 200 && res.data) {
+      messages.value = [...res.data.records, ...messages.value]
+    }
+  } catch (error: any) {
+    showToast(error.message || '加载失败')
   } finally {
     isLoading.value = false
   }
 }
 
+// 标记已读
+const markMessageRead = async () => {
+  try {
+    await markMessagesRead(chatInfo.value.id)
+  } catch (error) {
+    console.error('标记已读失败', error)
+  }
+}
+
 // 获取页面参数
 onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const { id, name, type = 'shop' } = currentPage?.options || {}
+  const query = uni.getLaunchOptionsSync()
+  const { targetId, name, role = 'seller' } = query.query || {}
 
-  if (id) {
+  if (targetId) {
     chatInfo.value = {
-      id,
+      id: Number(targetId),
       name: decodeURIComponent(name || ''),
-      avatar: type === 'shop' ? '/static/shops/shop1.png' : '/static/avatar/robot.png',
-      type,
+      avatar: role === 'seller' ? '/static/shops/shop1.png' : '/static/avatar/default.png',
+      role: role as 'buyer' | 'seller',
     }
   }
 
-  scrollToBottom()
+  // 获取聊天记录
+  loadMoreHistory()
+  // 标记已读
+  markMessageRead()
 })
 
 // 页面卸载时清理
@@ -538,18 +530,18 @@ onUnmounted(() => {
           border-radius: 8rpx;
         }
 
-        .order-card {
+        .product-card {
           display: flex;
           align-items: center;
           padding: 20rpx;
           background-color: #f8f8f8;
           border-radius: 12rpx;
 
-          .order-info {
+          .product-info {
             flex: 1;
             margin-right: 20rpx;
 
-            .order-title {
+            .product-name {
               display: block;
               margin-bottom: 8rpx;
               font-size: 28rpx;
@@ -557,24 +549,15 @@ onUnmounted(() => {
               color: #333;
             }
 
-            .order-id {
+            .product-price {
               display: block;
-              margin-bottom: 8rpx;
               font-size: 24rpx;
-              color: #666;
-            }
-
-            .order-status {
-              display: inline-block;
-              padding: 4rpx 12rpx;
-              font-size: 24rpx;
-              color: #018d71;
-              background-color: rgba(1, 141, 113, 0.1);
-              border-radius: 8rpx;
+              font-weight: bold;
+              color: #ff4d4f;
             }
           }
 
-          .order-image {
+          .product-image {
             width: 120rpx;
             height: 120rpx;
             border-radius: 8rpx;

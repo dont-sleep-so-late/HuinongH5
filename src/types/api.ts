@@ -2,7 +2,6 @@ import type {
   GoodsFormData,
   GoodsItem,
   Category,
-  ApiResponse,
   GoodsQueryParams,
   GoodsListResponse,
 } from './goods'
@@ -33,4 +32,71 @@ export interface Api {
     delete: (id: number) => Promise<ApiResponse<void>>
     setDefault: (id: number) => Promise<ApiResponse<AddressInfo>>
   }
+}
+
+// 通用响应格式
+export interface ApiResponse<T = any> {
+  code: number
+  message: string
+  data: T
+}
+
+// 分页响应格式
+export interface PageResponse<T = any> {
+  list: T[]
+  total: number
+  pageSize: number
+  pageNum: number
+  pages: number
+}
+
+// 订单卡片类型
+export interface OrderCard {
+  orderId: string
+  status: string
+  image: string
+}
+
+// 聊天消息类型
+export interface ChatMessage {
+  id: number
+  type: 'text' | 'image' | 'order'
+  content: string | OrderCard
+  time: string
+  showTime?: boolean
+  isSelf: boolean
+}
+
+// 聊天列表项
+export interface ChatItem {
+  id: number
+  targetId: number
+  targetName: string
+  targetAvatar: string
+  lastMessage: string
+  lastTime: string
+  unreadCount: number
+}
+
+// 聊天记录响应
+export interface ChatHistoryResponse {
+  records: ChatMessage[]
+  total: number
+  size: number
+  current: number
+}
+
+// 统一响应类型
+export type ApiResult<T> = Promise<ApiResponse<T>>
+export type PageResult<T> = Promise<ApiResponse<PageResponse<T>>>
+
+// 统一请求配置类型
+export interface RequestConfig extends UniApp.RequestOptions {
+  showLoading?: boolean
+  showError?: boolean
+}
+
+// 统一响应拦截器类型
+export interface ResponseInterceptor {
+  (response: UniApp.RequestSuccessCallbackResult): Promise<any>
 }

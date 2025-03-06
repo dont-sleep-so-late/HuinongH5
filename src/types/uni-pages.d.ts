@@ -41,11 +41,18 @@ interface NavigateToOptions {
        "/pages-sub/user/change-email" |
        "/pages-sub/goods/detail" |
        "/pages-sub/goods/edit" |
+       "/pages-sub/goods/list" |
+       "/pages-sub/goods/search" |
        "/pages-sub/order/list" |
        "/pages-sub/order/detail" |
        "/pages-sub/order/create" |
        "/pages-sub/order/review" |
-       "/pages-sub/order/logistics";
+       "/pages-sub/order/logistics" |
+       "/pages-sub/order/after-sale/list" |
+       "/pages-sub/order/after-sale/detail" |
+       "/pages-sub/order/after-sale/apply" |
+       "/pages-sub/chat/list" |
+       "/pages-sub/chat/detail";
 }
 interface RedirectToOptions extends NavigateToOptions {}
 

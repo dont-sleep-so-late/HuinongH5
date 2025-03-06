@@ -273,6 +273,18 @@ export default defineUniPages({
             navigationBarTitleText: '编辑商品',
           },
         },
+        {
+          path: 'list',
+          style: {
+            navigationBarTitleText: '商品列表',
+          },
+        },
+        {
+          path: 'search',
+          style: {
+            navigationBarTitleText: '搜索',
+          },
+        },
       ],
     },
     {
@@ -308,8 +320,89 @@ export default defineUniPages({
             navigationBarTitleText: '物流信息',
           },
         },
+        {
+          path: 'after-sale/list',
+          style: {
+            navigationBarTitleText: '售后列表',
+          },
+        },
+        {
+          path: 'after-sale/detail',
+          style: {
+            navigationBarTitleText: '售后详情',
+          },
+        },
+        {
+          path: 'after-sale/apply',
+          style: {
+            navigationBarTitleText: '申请售后',
+          },
+        },
       ],
     },
+    {
+      root: 'pages-sub/chat',
+      pages: [
+        {
+          path: 'list',
+          style: {
+            navigationBarTitleText: '消息列表',
+          },
+        },
+        {
+          path: 'detail',
+          style: {
+            navigationBarTitleText: '聊天详情',
+          },
+        },
+      ],
+    },
+    // {
+    //   root: 'pages-sub/marketing',
+    //   pages: [
+    //     {
+    //       path: 'seckill',
+    //       style: {
+    //         navigationBarTitleText: '秒杀活动',
+    //       },
+    //     },
+    //     {
+    //       path: 'seckill/detail',
+    //       style: {
+    //         navigationBarTitleText: '秒杀详情',
+    //       },
+    //     },
+    //     {
+    //       path: 'group-buy',
+    //       style: {
+    //         navigationBarTitleText: '拼团活动',
+    //       },
+    //     },
+    //     {
+    //       path: 'group-buy/detail',
+    //       style: {
+    //         navigationBarTitleText: '拼团详情',
+    //       },
+    //     },
+    //   ],
+    // },
+    // {
+    //   root: 'pages-sub/common',
+    //   pages: [
+    //     {
+    //       path: 'webview/',
+    //       style: {
+    //         navigationBarTitleText: '网页浏览',
+    //       },
+    //     },
+    //     {
+    //       path: 'search',
+    //       style: {
+    //         navigationBarTitleText: '搜索',
+    //       },
+    //     },
+    //   ],
+    // },
   ],
   tabBar: convertTabBar(getTabBarByRole('buyer')),
 })

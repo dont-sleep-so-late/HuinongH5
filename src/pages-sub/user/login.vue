@@ -1,7 +1,7 @@
 <template>
   <view class="login">
     <view class="header">
-      <image src="/static/logo.png" mode="aspectFit" class="logo" />
+      <image src="/static/images/logo.png" mode="aspectFit" class="logo" />
       <text class="title">惠农商城</text>
       <text class="subtitle">优质农产品 产地直供</text>
     </view>

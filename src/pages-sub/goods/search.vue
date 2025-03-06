@@ -91,6 +91,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
+import { showToast } from '@/utils/toast'
+import { searchProducts } from '@/api/product'
+import type { ProductBase, SearchParams } from '@/api/product'
 
 const router = useRouter()
 
@@ -120,7 +123,7 @@ const hotSearches = ref([
 ])
 
 // 搜索结果
-const searchResults = ref([])
+const searchResults = ref<ProductBase[]>([])
 
 // 从本地存储加载搜索历史
 const loadSearchHistory = () => {
@@ -154,10 +157,7 @@ const clearHistory = () => {
 // 处理搜索
 const handleSearch = async () => {
   if (!searchKeyword.value.trim()) {
-    uni.showToast({
-      title: '请输入搜索关键词',
-      icon: 'none',
-    })
+    showToast('请输入搜索关键词')
     return
   }
 
@@ -174,31 +174,30 @@ const loadSearchResults = async () => {
   isLoading.value = true
 
   try {
-    // TODO: 调用搜索API
-    // 模拟数据加载
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    const newResults = Array(pageSize.value)
-      .fill(null)
-      .map((_, index) => ({
-        id: page.value * pageSize.value + index,
-        name: `${searchKeyword.value}相关商品${page.value * pageSize.value + index}`,
-        description: '这是一段商品描述文本',
-        price: (Math.random() * 100 + 1).toFixed(2),
-        sales: Math.floor(Math.random() * 1000),
-        image: '/static/goods/default.jpg',
-      }))
-
-    if (page.value === 1) {
-      searchResults.value = newResults
-    } else {
-      searchResults.value = [...searchResults.value, ...newResults]
+    const params: SearchParams = {
+      pageNum: page.value,
+      pageSize: pageSize.value,
+      keyword: searchKeyword.value.trim(),
+      sort: 'new',
     }
-    page.value++
-  } catch (error) {
-    uni.showToast({
-      title: '加载失败',
-      icon: 'none',
-    })
+
+    const res = await searchProducts(params)
+    if (res.code === 200 && res.data) {
+      if (page.value === 1) {
+        searchResults.value = res.data.records
+      } else {
+        searchResults.value = [...searchResults.value, ...res.data.records]
+      }
+
+      // 更新页码
+      if (res.data.current >= Math.ceil(res.data.total / res.data.size)) {
+        isLoading.value = false
+      } else {
+        page.value++
+      }
+    }
+  } catch (error: any) {
+    showToast(error.message || '加载失败')
   } finally {
     isLoading.value = false
     isRefreshing.value = false
@@ -216,8 +215,10 @@ const handleCancel = () => {
 }
 
 // 跳转到商品详情
-const navigateToDetail = (item: any) => {
-  router.navigate('/pages-sub/goods/detail?id=' + item.id)
+const navigateToDetail = (item: ProductBase) => {
+  router.navigate('/pages-sub/goods/detail', {
+    id: item.id,
+  })
 }
 
 // 加载更多

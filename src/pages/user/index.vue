@@ -30,20 +30,16 @@
     <!-- 数据统计 -->
     <view class="stats-section">
       <view class="stat-item" @click="navigateTo('/pages-sub/user/follow-goods')">
-        <text class="number">{{ stats.followGoods }}</text>
+        <text class="number">{{ stats.favoriteProductCount }}</text>
         <text class="label">关注商品</text>
       </view>
       <view class="stat-item" @click="navigateTo('/pages-sub/user/follow-shops')">
-        <text class="number">{{ stats.followShops }}</text>
+        <text class="number">{{ stats.favoriteSellerCount }}</text>
         <text class="label">关注商家</text>
       </view>
       <view class="stat-item" @click="navigateTo('/pages-sub/user/footprints')">
-        <text class="number">{{ stats.footprints }}</text>
+        <text class="number">{{ stats.browsingHistoryCount }}</text>
         <text class="label">浏览足迹</text>
-      </view>
-      <view class="stat-item" @click="navigateTo('/pages-sub/user/purchase-records')">
-        <text class="number">{{ stats.purchaseRecords }}</text>
-        <text class="label">采购记录</text>
       </view>
     </view>
 
@@ -51,39 +47,39 @@
     <view class="menu-section">
       <view class="menu-header">
         <text class="menu-title">我的订单</text>
-        <view class="more" @click="navigateTo('/pages-sub/order/list/index')">
+        <view class="more" @click="navigateTo('/pages-sub/order/list')">
           <text>全部订单</text>
           <wd-icon name="arrow-right" size="28" color="#999" />
         </view>
       </view>
       <view class="menu-grid">
-        <view class="menu-item" @click="navigateTo('/pages-sub/order/list/index?status=pending')">
-          <wd-icon name="pay" size="48" color="#018d71" />
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/list?status=pending')">
+          <wd-icon name="money-circle" size="48" color="#018d71"></wd-icon>
           <text>待付款</text>
           <view class="badge" v-if="orderCounts.pending > 0">
             {{ formatBadge(orderCounts.pending) }}
           </view>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages-sub/order/list/index?status=paid')">
-          <wd-icon name="cart" size="48" color="#018d71" />
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/list?status=paid')">
+          <wd-icon name="gift" size="48" color="#018d71" />
           <text>待发货</text>
           <view class="badge" v-if="orderCounts.paid > 0">{{ formatBadge(orderCounts.paid) }}</view>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages-sub/order/list/index?status=shipped')">
-          <wd-icon name="logistics" size="48" color="#018d71" />
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/list?status=shipped')">
+          <wd-icon name="a-rootlist" size="48" color="#018d71" />
           <text>待收货</text>
           <view class="badge" v-if="orderCounts.shipped > 0">
             {{ formatBadge(orderCounts.shipped) }}
           </view>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages-sub/order/list/index?status=received')">
-          <wd-icon name="comment" size="48" color="#018d71" />
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/list?status=received')">
+          <wd-icon name="spool" size="48" color="#018d71" />
           <text>待评价</text>
           <view class="badge" v-if="orderCounts.received > 0">
             {{ formatBadge(orderCounts.received) }}
           </view>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages-sub/order/after-sale/list/index')">
+        <view class="menu-item" @click="navigateTo('/pages-sub/order/after-sale/list')">
           <wd-icon name="service" size="48" color="#018d71" />
           <text>售后</text>
         </view>
@@ -91,24 +87,24 @@
     </view>
 
     <!-- 我的优惠 -->
-    <view class="menu-section">
+    <view class="menu-section" v-if="false">
       <view class="menu-header">
         <text class="menu-title">我的优惠</text>
       </view>
       <view class="menu-grid">
-        <view class="menu-item" @click="navigateTo('/pages-sub/user/my-coupon/index')">
+        <view class="menu-item" @click="navigateTo('/pages-sub/user/coupons')">
           <wd-icon name="coupon" size="48" color="#ff5000" />
           <text>优惠券</text>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages-sub/user/points/index')">
+        <view class="menu-item" @click="navigateTo('/pages-sub/user/points')">
           <wd-icon name="success" size="48" color="#ff5000" />
           <text>积分</text>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages-sub/marketing/group-buy/index')">
+        <view class="menu-item" @click="navigateTo('/pages-sub/marketing/group-buy')">
           <wd-icon name="friends" size="48" color="#ff5000" />
           <text>拼团</text>
         </view>
-        <view class="menu-item" @click="navigateTo('/pages-sub/marketing/seckill/index')">
+        <view class="menu-item" @click="navigateTo('/pages-sub/marketing/seckill')">
           <wd-icon name="clock" size="48" color="#ff5000" />
           <text>秒杀</text>
         </view>
@@ -116,7 +112,7 @@
     </view>
 
     <!-- 我的农场 -->
-    <view class="section farm-section">
+    <view class="section farm-section" v-if="false">
       <view class="section-header">
         <text class="title">我的农场</text>
         <view class="more" @click="navigateTo('/pages-sub/farm/index')">
@@ -158,18 +154,17 @@ import { useUserStore } from '@/stores/user'
 import { showToast } from '@/utils/toast'
 import { getUserInfo } from '@/api/user'
 import { logout } from '@/api/auth'
-
+import { getUserCenterStats, type UserCenterStats } from '@/api/profile'
 const router = useRouter()
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo)
 const isSeller = computed(() => userInfo.value?.role === 'seller')
 
 // 统计数据
-const stats = ref({
-  followGoods: 0,
-  followShops: 0,
-  footprints: 0,
-  purchaseRecords: 0,
+const stats = ref<UserCenterStats>({
+  favoriteProductCount: 0,
+  favoriteSellerCount: 0,
+  browsingHistoryCount: 0,
 })
 
 // 订单数量
@@ -254,12 +249,10 @@ const getUserData = async () => {
     if (res.code === 200) {
       // 更新用户信息
       userStore.updateUserInfo(res.data)
-      // 初始化统计数据
-      stats.value = {
-        followGoods: 0,
-        followShops: 0,
-        footprints: 0,
-        purchaseRecords: 0,
+
+      const statsRes = await getUserCenterStats()
+      if (statsRes.code === 200) {
+        stats.value = statsRes.data
       }
       // 初始化订单数量
       orderCounts.value = {

@@ -1,5 +1,5 @@
 <template>
-  <view class="order-detail">
+  <view class="order-detail" v-if="orderInfo">
     <!-- 订单状态 -->
     <view class="status-section">
       <view class="status-info">
@@ -13,10 +13,10 @@
     <view class="address-section">
       <view class="address-info">
         <view class="contact">
-          <text class="name">{{ orderInfo.address?.name }}</text>
-          <text class="phone">{{ orderInfo.address?.phone }}</text>
+          <text class="name">{{ orderInfo.shippingName }}</text>
+          <text class="phone">{{ orderInfo.shippingPhone }}</text>
         </view>
-        <text class="address">{{ orderInfo.address?.fullAddress }}</text>
+        <text class="address">{{ orderInfo.shippingAddress }}</text>
       </view>
       <text class="iconfont icon-location"></text>
     </view>
@@ -31,14 +31,14 @@
         <text class="iconfont icon-arrow-right"></text>
       </view>
       <view class="goods-list">
-        <view v-for="goods in orderInfo.goodsList" :key="goods.id" class="goods-item">
-          <image :src="goods.image" mode="aspectFill" class="goods-image" />
+        <view v-for="item in orderInfo.orderItems" :key="item.productId" class="goods-item">
+          <image :src="item.productImage" mode="aspectFill" class="goods-image" />
           <view class="goods-info">
-            <text class="goods-name">{{ goods.name }}</text>
-            <text class="goods-spec">{{ goods.spec }}</text>
+            <text class="goods-name">{{ item.productName }}</text>
+            <text class="goods-spec">{{ item.specName }} {{ item.specValue }}</text>
             <view class="goods-bottom">
-              <text class="goods-price">¥{{ goods.price }}</text>
-              <text class="goods-quantity">x{{ goods.quantity }}</text>
+              <text class="goods-price">¥{{ item.price }}</text>
+              <text class="goods-quantity">x{{ item.quantity }}</text>
             </view>
           </view>
         </view>
@@ -57,11 +57,11 @@
     <view class="amount-section">
       <view class="amount-item">
         <text>商品总额</text>
-        <text>¥{{ orderInfo.goodsAmount }}</text>
+        <text>¥{{ orderInfo.totalAmount }}</text>
       </view>
       <view class="amount-item">
         <text>运费</text>
-        <text>¥{{ orderInfo.deliveryFee }}</text>
+        <text>¥{{ orderInfo.freightAmount }}</text>
       </view>
       <view class="amount-item" v-if="orderInfo.couponAmount > 0">
         <text>优惠券</text>
@@ -70,7 +70,7 @@
       <view class="divider"></view>
       <view class="amount-item total">
         <text>实付款</text>
-        <text class="price">¥{{ orderInfo.totalAmount }}</text>
+        <text class="price">¥{{ orderInfo.payableAmount }}</text>
       </view>
     </view>
 
@@ -103,24 +103,24 @@
 
     <!-- 底部操作栏 -->
     <view class="footer">
-      <template v-if="orderInfo.status === 'unpaid'">
-        <wd-button size="large" @click="cancelOrder">取消订单</wd-button>
+      <template v-if="orderInfo.status === 'pending'">
+        <wd-button size="large" @click="handleCancelOrder">取消订单</wd-button>
         <wd-button size="large" type="primary" @click="payOrder">立即付款</wd-button>
       </template>
-      <template v-else-if="orderInfo.status === 'unshipped'">
-        <wd-button size="large" @click="viewLogistics">查看物流</wd-button>
-        <wd-button size="large" type="primary" @click="urgeShipment">催发货</wd-button>
+      <template v-else-if="orderInfo.status === 'paid'">
+        <wd-button size="large" @click="urgeShipment">催发货</wd-button>
       </template>
-      <template v-else-if="orderInfo.status === 'unreceived'">
-        <wd-button size="large" @click="viewLogistics">查看物流</wd-button>
-        <wd-button size="large" type="primary" @click="confirmReceipt">确认收货</wd-button>
+      <template v-else-if="orderInfo.status === 'shipped'">
+        <wd-button size="large" @click="handleConfirmReceipt">确认收货</wd-button>
       </template>
       <template v-else-if="orderInfo.status === 'completed'">
-        <wd-button size="large" @click="viewLogistics">查看物流</wd-button>
         <wd-button size="large" @click="deleteOrder">删除订单</wd-button>
         <wd-button size="large" type="primary" @click="reviewOrder">评价</wd-button>
       </template>
     </view>
+
+    <!-- 底部安全区域 -->
+    <view class="safe-area-bottom"></view>
   </view>
 </template>
 
@@ -128,67 +128,46 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
+import {
+  getOrderDetail,
+  cancelOrder,
+  confirmOrder,
+  type OrderDetail,
+  type OrderStatus,
+} from '@/api/order'
 
 const router = useRouter()
 
 // 订单信息
-const orderInfo = ref({
-  id: 1,
-  orderNo: 'HN202403150001',
-  status: 'unpaid',
-  shopName: '测试店铺',
-  shopAvatar: '/static/shop/avatar.png',
-  address: {
-    name: '张三',
-    phone: '13800138000',
-    fullAddress: '广东省广州市天河区天河路1号',
-  },
-  goodsList: [
-    {
-      id: 1,
-      name: '测试商品',
-      spec: '规格：1kg',
-      price: 29.9,
-      quantity: 2,
-      image: '/static/goods/default.jpg',
-    },
-  ],
-  deliveryType: 'express',
-  remark: '请尽快发货',
-  goodsAmount: 59.8,
-  deliveryFee: 10,
-  couponAmount: 5,
-  totalAmount: 64.8,
-  createTime: '2024-03-15 10:00:00',
-  payTime: '',
-  deliveryTime: '',
-  receiveTime: '',
-})
+const orderInfo = ref<OrderDetail | null>(null)
 
 // 获取订单状态文本
-const getStatusText = (status: string) => {
-  const statusMap: Record<string, string> = {
-    unpaid: '待付款',
-    unshipped: '待发货',
-    unreceived: '待收货',
+const getStatusText = (status: OrderStatus) => {
+  const statusMap: Record<OrderStatus, string> = {
+    pending: '待付款',
+    paid: '待发货',
+    shipped: '待收货',
     completed: '已完成',
+    cancelled: '已取消',
   }
   return statusMap[status] || '未知状态'
 }
 
 // 获取订单状态描述
-const getStatusDesc = (status: string) => {
-  const descMap: Record<string, string> = {
-    unpaid: '请尽快完成支付',
-    unshipped: '商家正在处理您的订单',
-    unreceived: '商品正在配送中',
+const getStatusDesc = (status: OrderStatus) => {
+  const descMap: Record<OrderStatus, string> = {
+    pending: '请尽快完成支付',
+    paid: '商家正在处理您的订单',
+    shipped: '商品正在配送中',
     completed: '交易已完成',
+    cancelled: '订单已取消',
   }
   return descMap[status] || ''
 }
 
 // 复制订单号
 const copyOrderNo = () => {
+  if (!orderInfo.value) return
   uni.setClipboardData({
     data: orderInfo.value.orderNo,
     success: () => {
@@ -198,20 +177,22 @@ const copyOrderNo = () => {
 }
 
 // 取消订单
-const cancelOrder = () => {
+const handleCancelOrder = () => {
+  if (!orderInfo.value) return
   uni.showModal({
     title: '提示',
     content: '确定要取消该订单吗？',
     success: async (res) => {
       if (res.confirm) {
         try {
-          // TODO: 调用取消订单接口
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-          showToast('取消成功', { icon: 'success' })
-          // 返回上一页
-          router.back()
-        } catch (error) {
-          showToast('取消失败')
+          const res = await cancelOrder(orderInfo.value!.orderId)
+          if (res.code === 200) {
+            showToast('取消成功', { icon: 'success' })
+            // 返回上一页
+            router.back()
+          }
+        } catch (error: any) {
+          showToast(error.message || '取消失败')
         }
       }
     },
@@ -224,37 +205,28 @@ const payOrder = () => {
   showToast('支付功能开发中')
 }
 
-// 查看物流
-const viewLogistics = () => {
-  router.navigate(`/pages-sub/order/logistics?id=${orderInfo.value.id}`)
-}
-
 // 催发货
-const urgeShipment = async () => {
-  try {
-    // TODO: 调用催发货接口
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    showToast('已通知卖家尽快发货')
-  } catch (error) {
-    showToast('操作失败')
-  }
+const urgeShipment = () => {
+  showToast('催发货功能开发中')
 }
 
 // 确认收货
-const confirmReceipt = () => {
+const handleConfirmReceipt = () => {
+  if (!orderInfo.value) return
   uni.showModal({
     title: '提示',
     content: '确认已收到商品吗？',
     success: async (res) => {
       if (res.confirm) {
         try {
-          // TODO: 调用确认收货接口
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-          showToast('确认收货成功', { icon: 'success' })
-          // 返回上一页
-          router.back()
-        } catch (error) {
-          showToast('确认失败')
+          const res = await confirmOrder(orderInfo.value!.orderId)
+          if (res.code === 200) {
+            showToast('确认收货成功', { icon: 'success' })
+            // 返回上一页
+            router.back()
+          }
+        } catch (error: any) {
+          showToast(error.message || '确认失败')
         }
       }
     },
@@ -263,6 +235,7 @@ const confirmReceipt = () => {
 
 // 删除订单
 const deleteOrder = () => {
+  if (!orderInfo.value) return
   uni.showModal({
     title: '提示',
     content: '确定要删除该订单吗？',
@@ -274,7 +247,7 @@ const deleteOrder = () => {
           showToast('删除成功', { icon: 'success' })
           // 返回上一页
           router.back()
-        } catch (error) {
+        } catch (error: any) {
           showToast('删除失败')
         }
       }
@@ -284,7 +257,8 @@ const deleteOrder = () => {
 
 // 评价订单
 const reviewOrder = () => {
-  router.navigate(`/pages-sub/order/review?id=${orderInfo.value.id}`)
+  if (!orderInfo.value) return
+  router.navigate(`/pages-sub/order/review?id=${orderInfo.value.orderId}`)
 }
 
 // 页面加载
@@ -296,11 +270,14 @@ onMounted(async () => {
 
   if (id) {
     try {
-      // TODO: 调用获取订单详情接口
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      // 模拟数据已经在 orderInfo 中
-    } catch (error) {
-      showToast('加载失败')
+      const response = await getOrderDetail(Number(id))
+      if (response.code === 200 && response.data) {
+        orderInfo.value = response.data as unknown as OrderDetail
+      } else {
+        showToast(response.message || '加载失败')
+      }
+    } catch (error: any) {
+      showToast(error.message || '加载失败')
     }
   }
 })
@@ -309,7 +286,7 @@ onMounted(async () => {
 <style lang="scss">
 .order-detail {
   min-height: 100vh;
-  padding-bottom: 120rpx;
+  padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
   background-color: #f8f8f8;
 }
 
@@ -552,7 +529,7 @@ onMounted(async () => {
 .footer {
   position: fixed;
   right: 0;
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom);
   left: 0;
   display: flex;
   justify-content: flex-end;
@@ -563,5 +540,10 @@ onMounted(async () => {
   .wd-button {
     margin-left: 20rpx;
   }
+}
+
+.safe-area-bottom {
+  height: env(safe-area-inset-bottom);
+  background-color: #fff;
 }
 </style>

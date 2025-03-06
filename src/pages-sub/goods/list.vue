@@ -100,18 +100,24 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Ref } from 'vue'
+import { useRouter } from '@/hooks/router'
+import { showToast } from '@/utils/toast'
+import { getProductList } from '@/api/product'
+import type { ProductBase, AdvancedQueryParams } from '@/api/product'
+
+const router = useRouter()
 
 // 筛选项
 const filterItems = [
   { name: '综合', sortable: false },
-  { name: '销量', sortable: true },
-  { name: '价格', sortable: true },
+  { name: '销量', sortField: 'sales' as const },
+  { name: '价格', sortField: 'price' as const },
   { name: '筛选', sortable: false },
 ]
 
 // 商品列表
-const goodsList: Ref<any[]> = ref([])
-const paging = ref(null)
+const goodsList = ref<ProductBase[]>([])
+const paging = ref()
 
 // 筛选状态
 const currentFilter = ref(0)
@@ -119,13 +125,15 @@ const showFilter = ref(false)
 const sortDirection = ref<Record<number, 'asc' | 'desc' | ''>>({})
 
 // 筛选参数
-const filterParams = ref({
-  minPrice: '',
-  maxPrice: '',
-  categoryId: 0,
-  tags: [] as number[],
-  sortField: '',
-  sortOrder: '',
+const filterParams = ref<AdvancedQueryParams>({
+  pageNum: 1,
+  pageSize: 10,
+  minPrice: undefined,
+  maxPrice: undefined,
+  categoryId: undefined,
+  region: undefined,
+  sortField: undefined,
+  sortOrder: undefined,
 })
 
 // 分类数据
@@ -137,14 +145,6 @@ const categories = ref([
   { id: 5, name: '粮油调味' },
 ])
 
-// 筛选标签
-const filterTags = ref([
-  { id: 1, name: '包邮' },
-  { id: 2, name: '有机' },
-  { id: 3, name: '特价' },
-  { id: 4, name: '新品' },
-])
-
 // 切换筛选项
 const switchFilter = (index: number) => {
   if (index === 3) {
@@ -152,7 +152,7 @@ const switchFilter = (index: number) => {
     return
   }
 
-  if (filterItems[index].sortable) {
+  if (filterItems[index].sortField) {
     // 处理排序
     const current = sortDirection.value[index] || ''
     if (!current) {
@@ -164,12 +164,8 @@ const switchFilter = (index: number) => {
     }
 
     // 更新排序参数
-    if (index === 1) {
-      filterParams.value.sortField = 'sales'
-    } else if (index === 2) {
-      filterParams.value.sortField = 'price'
-    }
-    filterParams.value.sortOrder = sortDirection.value[index]
+    filterParams.value.sortField = filterItems[index].sortField
+    filterParams.value.sortOrder = sortDirection.value[index] || undefined
   }
 
   currentFilter.value = index
@@ -188,25 +184,11 @@ const selectCategory = (id: number) => {
   filterParams.value.categoryId = id
 }
 
-// 切换标签
-const toggleTag = (id: number) => {
-  const index = filterParams.value.tags.indexOf(id)
-  if (index > -1) {
-    filterParams.value.tags.splice(index, 1)
-  } else {
-    filterParams.value.tags.push(id)
-  }
-}
-
 // 重置筛选
 const resetFilter = () => {
   filterParams.value = {
-    minPrice: '',
-    maxPrice: '',
-    categoryId: 0,
-    tags: [],
-    sortField: '',
-    sortOrder: '',
+    pageNum: 1,
+    pageSize: 10,
   }
 }
 
@@ -230,28 +212,37 @@ const reloadList = () => {
 
 // 查询列表数据
 const queryList = async (pageNo: number, pageSize: number) => {
-  // 模拟数据
-  const list = Array(pageSize)
-    .fill(0)
-    .map((_, index) => ({
-      id: pageNo * pageSize + index + 1,
-      name: '新鲜水蜜桃',
-      desc: '精选应季水果，个大饱满',
-      price: 29.9,
-      sales: 1999,
-      image: '/static/goods/peach.jpg',
-    }))
+  try {
+    const params: AdvancedQueryParams = {
+      ...filterParams.value,
+      pageNum: pageNo,
+      pageSize,
+    }
 
-  return {
-    list,
-    total: 100,
+    const res = await getProductList(params)
+    if (res.code === 200 && res.data) {
+      return {
+        list: res.data.records,
+        total: res.data.total,
+      }
+    }
+    return {
+      list: [],
+      total: 0,
+    }
+  } catch (error: any) {
+    showToast(error.message || '加载失败')
+    return {
+      list: [],
+      total: 0,
+    }
   }
 }
 
 // 跳转到详情页
 const navigateToDetail = (id: number) => {
-  uni.navigateTo({
-    url: `/pages-sub/goods/detail?id=${id}`,
+  router.navigate('/pages-sub/goods/detail', {
+    id,
   })
 }
 </script>

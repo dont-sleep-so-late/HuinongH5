@@ -32,7 +32,8 @@ uni.addInterceptor('navigateTo', {
     return true
   },
   fail(err) {
-    console.log('路由拦截器错误:', err)
+    console.error('路由拦截器错误:', err)
+    uni.clearStorageSync()
     return false
   },
 })
@@ -63,7 +64,7 @@ uni.addInterceptor('switchTab', {
     return true
   },
   fail(err) {
-    console.log('Tab页面拦截器错误:', err)
+    uni.clearStorageSync()
     return false
   },
 })

@@ -153,7 +153,7 @@ export const getLogisticsInfo = (orderId: number) => {
  */
 export const previewBuyNowOrder = (params: BuyNowPreviewParams) => {
   return http.post<ApiResponse<OrderPreview>>(
-    `/api/m/orders/preview/buy-now?productId=${params.productId}&specId=${params.specId}&quantity=${params.quantity}`,
+    `/orders/preview/buy-now?productId=${params.productId}&specId=${params.specId}&quantity=${params.quantity}`,
   )
 }
 
@@ -161,19 +161,19 @@ export const previewBuyNowOrder = (params: BuyNowPreviewParams) => {
  * 购物车预览
  */
 export const previewCartOrder = (cartItemIds: number[]) => {
-  return http.post<ApiResponse<OrderPreview>>('/api/m/orders/preview/cart', cartItemIds)
+  return http.post<ApiResponse<OrderPreview>>('/orders/preview/cart', cartItemIds)
 }
 
 /**
  * 立即购买下单
  */
 export const createBuyNowOrder = (params: BuyNowOrderParams) => {
-  return http.post<ApiResponse<number>>('/api/m/orders/buy-now', params)
+  return http.post<ApiResponse<number>>('/orders/buy-now', params)
 }
 
 /**
  * 购物车下单
  */
 export const createCartOrder = (params: CartOrderParams) => {
-  return http.post<ApiResponse<number>>('/api/m/orders/cart', params)
+  return http.post<ApiResponse<number>>('/orders/cart', params)
 }

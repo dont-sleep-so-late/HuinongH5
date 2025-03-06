@@ -72,6 +72,11 @@ export function sendEmailCode(data: { email: string; type: 'login' | 'register' 
   })
 }
 
+// 刷新token
+export function refreshToken() {
+  return http.post<string>('/auth/refresh-token')
+}
+
 // 退出登录
 export function logout() {
   return http.post('/auth/logout')

@@ -29,13 +29,13 @@
     <!-- 商品列表 -->
     <view class="goods-list">
       <view class="goods-items">
-        <view v-for="item in orderPreview.items" :key="item.productId" class="goods-item">
-          <image :src="item.productImage" mode="aspectFill" class="goods-image" />
+        <view v-for="item in orderPreview.productList" :key="item.productId" class="goods-item">
+          <image :src="item.mainImage" mode="aspectFill" class="goods-image" />
           <view class="goods-info">
             <text class="goods-name">{{ item.productName }}</text>
             <text class="goods-spec">{{ item.specName }}</text>
             <view class="goods-bottom">
-              <text class="goods-price">¥{{ item.price }}</text>
+              <text class="goods-price">¥{{ item.price.toFixed(2) }}</text>
               <text class="goods-quantity">x{{ item.quantity }}</text>
             </view>
           </view>
@@ -47,15 +47,17 @@
         <text class="label">配送方式</text>
         <view class="delivery-info">
           <text class="method">快递配送</text>
-          <text class="fee">¥{{ orderPreview.freightAmount }}</text>
+          <text class="fee">¥{{ orderPreview.freightAmount.toFixed(2) }}</text>
         </view>
       </view>
 
       <!-- 商品总计 -->
       <view class="goods-total">
-        <text>共{{ orderPreview.totalQuantity }}件</text>
+        <text>
+          共{{ orderPreview.productList.reduce((sum, item) => sum + item.quantity, 0) }}件
+        </text>
         <text>小计：</text>
-        <text class="price">¥{{ orderPreview.totalAmount }}</text>
+        <text class="price">¥{{ orderPreview.totalAmount.toFixed(2) }}</text>
       </view>
     </view>
 
@@ -92,7 +94,7 @@
     <view class="bottom-bar">
       <view class="price-info">
         <text>实付款：</text>
-        <text class="total-price">¥{{ orderPreview.payAmount }}</text>
+        <text class="total-price">¥{{ orderPreview.payableAmount.toFixed(2) }}</text>
       </view>
       <view class="submit-btn" @click="submitOrder">提交订单</view>
     </view>
@@ -106,8 +108,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
-import { createBuyNowOrder, createCartOrder } from '@/services/order'
-import type { OrderPreview } from '@/services/order'
+import { createBuyNowOrder, createCartOrder } from '@/api/order'
+import { getAddressList } from '@/api/address'
+import type { ApiResponse } from '@/types/api'
+import type { CreateOrderResponse } from '@/api/order'
 
 const router = useRouter()
 
@@ -178,21 +182,44 @@ const paymentMethods = [
 ]
 const selectedPayment = ref(1)
 
-// 订单预览数据
-const orderPreview = ref<OrderPreview>({
-  items: [],
-  totalQuantity: 0,
+// 订单预览数据类型定义
+interface OrderPreviewItem {
+  productId: number
+  productName: string
+  mainImage: string
+  specId: number
+  specName: string
+  price: number
+  quantity: number
+  subtotal: number
+}
+
+interface OrderPreviewData {
+  productList: OrderPreviewItem[]
+  totalAmount: number
+  freightAmount: number
+  discountAmount: number | null
+  payableAmount: number
+  availableCoupons: any[] | null
+  address: any | null
+}
+
+const orderPreview = ref<OrderPreviewData>({
+  productList: [],
   totalAmount: 0,
   freightAmount: 0,
-  payAmount: 0,
+  discountAmount: null,
+  payableAmount: 0,
+  availableCoupons: null,
+  address: null,
 })
 
 // 订单类型和参数
 const orderType = ref<'buy_now' | 'cart'>('buy_now')
 const orderParams = ref<any>(null)
 
-// 订单备注
-const remark = ref('')
+// 定义响应式变量
+const remark = ref<string>('') // 初始化为空字符串
 
 // 计算总价
 const totalPrice = computed(() => {
@@ -205,14 +232,42 @@ const totalPrice = computed(() => {
     .toFixed(2)
 })
 
+// 获取默认地址
+const fetchDefaultAddress = async () => {
+  try {
+    const res = await getAddressList()
+    if (res.code === 200 && Array.isArray(res.data)) {
+      // 查找默认地址
+      const defaultAddress = res.data.find((addr) => addr.isDefault === true)
+      if (defaultAddress) {
+        address.value = {
+          id: defaultAddress.id,
+          name: defaultAddress.name,
+          phone: defaultAddress.phone,
+          province: defaultAddress.province,
+          city: defaultAddress.city,
+          district: defaultAddress.district,
+          detail: defaultAddress.detail,
+          fullAddress: `${defaultAddress.province}${defaultAddress.city}${defaultAddress.district}${defaultAddress.detail}`,
+        }
+      }
+    }
+  } catch (error) {
+    console.error('获取默认地址失败:', error)
+  }
+}
+
 // 监听地址选择
-onMounted(() => {
+onMounted(async () => {
   // 获取本地存储的订单预览数据
   const preview = uni.getStorageSync('order_preview')
   if (preview) {
     orderType.value = preview.type
     orderPreview.value = preview.data
     orderParams.value = preview.params
+
+    // 获取默认地址
+    await fetchDefaultAddress()
   } else {
     showToast('订单信息不存在')
     setTimeout(() => {
@@ -221,7 +276,7 @@ onMounted(() => {
   }
 
   // 监听地址选择
-  uni.$on('addressSelected', (selectedAddress: any) => {
+  uni.$on('onAddressSelect', (selectedAddress: any) => {
     address.value = selectedAddress
   })
 })
@@ -244,23 +299,30 @@ const submitOrder = async () => {
   }
 
   try {
+    const orderRequestParams = {
+      ...orderParams.value,
+      addressId: address.value.id,
+      ...(remark.value ? { remark: remark.value } : {}),
+    }
+
     let orderId: number
     if (orderType.value === 'buy_now') {
       // 立即购买下单
-      const res = await createBuyNowOrder({
-        ...orderParams.value,
-        addressId: address.value.id,
-        remark: remark.value || '',
-      })
-      orderId = res.data
+      const res = await createBuyNowOrder(orderRequestParams)
+      if (res.code === 200 && typeof res.data === 'number') {
+        orderId = res.data.id
+      } else {
+        throw new Error(res.message || '下单失败')
+      }
     } else {
       // 购物车下单
-      const res = await createCartOrder({
-        ...orderParams.value,
-        addressId: address.value.id,
-        remark: remark.value || '',
-      })
-      orderId = res.data
+      const res = await createCartOrder(orderRequestParams)
+
+      if (res.code === 200 && typeof res.data === 'number') {
+        orderId = res.data.id
+      } else {
+        throw new Error(res.message || '下单失败')
+      }
     }
 
     showToast('订单提交成功', { icon: 'success' })
@@ -268,7 +330,13 @@ const submitOrder = async () => {
       // 清除订单预览数据
       uni.removeStorageSync('order_preview')
       // 跳转到订单详情页
-      router.navigate('/pages-sub/order/detail', { id: orderId })
+      uni.navigateTo({
+        url: `/pages-sub/order/detail?id=${orderId}`,
+        fail: (err) => {
+          console.error('导航失败:', err)
+          showToast('跳转订单详情页失败')
+        },
+      })
     }, 1500)
   } catch (error: any) {
     showToast(error.message || '订单提交失败')

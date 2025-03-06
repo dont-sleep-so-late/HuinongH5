@@ -1,187 +1,234 @@
 <template>
   <view class="follow-shops">
-    <!-- 商家列表 -->
-    <z-paging ref="paging" v-model="shopList" @query="queryShopList">
-      <template #default>
-        <view class="shop-list">
-          <view v-for="shop in shopList" :key="shop.id" class="shop-item">
-            <image :src="shop.logo" mode="aspectFill" class="shop-logo" />
-            <view class="shop-info">
-              <view class="shop-name">{{ shop.name }}</view>
-              <view class="shop-desc">{{ shop.description }}</view>
-              <view class="shop-data">
-                <text>商品数: {{ shop.goodsCount }}</text>
-                <text>关注数: {{ shop.followCount }}</text>
-              </view>
+    <scroll-view
+      scroll-y
+      class="shop-list"
+      @scrolltolower="loadMore"
+      :refresher-enabled="true"
+      :refresher-triggered="isRefreshing"
+      @refresherrefresh="onRefresh"
+    >
+      <view class="shop-items" v-if="shopList.length > 0">
+        <view
+          v-for="item in shopList"
+          :key="item.sellerId"
+          class="shop-item"
+          @click="goToShop(item.sellerId)"
+        >
+          <image :src="item.avatar" mode="aspectFill" class="shop-avatar" />
+          <view class="shop-info">
+            <text class="shop-name">{{ item.sellerName }}</text>
+            <view class="shop-stats">
+              <text>商品数量：{{ item.productCount }}</text>
+              <text>关注人数：{{ item.followerCount }}</text>
             </view>
-            <view class="shop-actions">
-              <wd-button size="small" @click="handleViewShop(shop)">进店逛逛</wd-button>
-              <wd-button type="danger" size="small" @click="handleUnfollow(shop)">
-                取消关注
-              </wd-button>
-            </view>
+            <text class="favorite-time">{{ item.favoriteTime }}</text>
           </view>
+          <wd-button size="small" type="primary" @click.stop="handleUnfollow(item)">
+            取消关注
+          </wd-button>
         </view>
-      </template>
-    </z-paging>
+      </view>
 
-    <!-- 空状态 -->
-    <view v-if="shopList.length === 0" class="empty-state">
-      <image src="/static/images/empty/follow.png" mode="aspectFit" />
-      <text>暂无关注商家</text>
-      <wd-button type="primary" size="small" @click="handleGoShopping">去逛逛</wd-button>
-    </view>
+      <!-- 加载更多 -->
+      <view class="loading" v-if="isLoading">
+        <wd-loading size="20" />
+        <text>加载中...</text>
+      </view>
+
+      <!-- 空状态 -->
+      <view class="empty" v-if="shopList.length === 0 && !isLoading">
+        <image src="/static/images/empty-favorite.png" mode="aspectFit" class="empty-icon" />
+        <text>暂无关注商家</text>
+      </view>
+    </scroll-view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
-
-interface ShopItem {
-  id: string
-  name: string
-  logo: string
-  description: string
-  goodsCount: number
-  followCount: number
-}
+import { showToast } from '@/utils/toast'
+import { getFavoriteSellers, toggleFavoriteSeller, type FavoriteSeller } from '@/api/profile'
+import type { PageResponse } from '@/types/api'
 
 const router = useRouter()
-const paging = ref()
-const shopList = ref<ShopItem[]>([])
 
-// 查询关注商家列表
-const queryShopList = async (pageNo: number, pageSize: number) => {
+// 加载状态
+const isLoading = ref(false)
+const isRefreshing = ref(false)
+const page = ref(1)
+const pageSize = ref(10)
+
+// 商家列表
+const shopList = ref<FavoriteSeller[]>([])
+
+// 加载商家列表
+const loadShops = async () => {
+  if (isLoading.value) return
+  isLoading.value = true
+
   try {
-    const res = await uni.$api.user.getFollowShops({ pageNo, pageSize })
-    return {
-      list: res.data.list,
-      total: res.data.total,
-    }
-  } catch (error) {
-    uni.showToast({
-      title: '获取关注商家失败',
-      icon: 'none',
+    const res = await getFavoriteSellers({
+      pageNum: page.value,
+      pageSize: pageSize.value,
     })
-    return {
-      list: [],
-      total: 0,
+
+    if (res.code === 200 && res.data) {
+      const pageData = res.data as unknown as PageResponse<FavoriteSeller>
+      if (page.value === 1) {
+        shopList.value = pageData.records
+      } else {
+        shopList.value = [...shopList.value, ...pageData.records]
+      }
+      // 如果没有更多数据了，禁止继续加载
+      if (pageData.current >= pageData.pages) {
+        isLoading.value = false
+      } else {
+        page.value++
+      }
     }
+  } catch (error: any) {
+    showToast(error.message || '加载失败')
+  } finally {
+    isLoading.value = false
+    isRefreshing.value = false
   }
 }
 
-// 查看商家店铺
-const handleViewShop = (shop: ShopItem) => {
-  router.navigate('/pages-sub/shop/detail', {
-    id: shop.id,
-  })
+// 跳转到商家店铺
+const goToShop = (sellerId: number) => {
+  router.navigate(`/pages-sub/shop/index?id=${sellerId}`)
 }
 
-// 取消关注
-const handleUnfollow = (shop: ShopItem) => {
+// 取消关注商家
+const handleUnfollow = async (shop: FavoriteSeller) => {
   uni.showModal({
     title: '提示',
     content: '确定要取消关注该商家吗？',
     success: async (res) => {
       if (res.confirm) {
         try {
-          await uni.$api.user.unfollowShop(shop.id)
-          uni.showToast({
-            title: '取消关注成功',
-            icon: 'success',
-          })
-          paging.value?.reload()
-        } catch (error) {
-          uni.showToast({
-            title: '取消关注失败',
-            icon: 'none',
-          })
+          const res = await toggleFavoriteSeller(shop.sellerId)
+          if (res.code === 200) {
+            showToast('取消关注成功')
+            // 重新加载列表
+            page.value = 1
+            shopList.value = []
+            loadShops()
+          }
+        } catch (error: any) {
+          showToast(error.message || '操作失败')
         }
       }
     },
   })
 }
 
-// 去购物
-const handleGoShopping = () => {
-  router.switchTab('/pages/index/index')
+// 加载更多
+const loadMore = () => {
+  loadShops()
 }
+
+// 下拉刷新
+const onRefresh = async () => {
+  isRefreshing.value = true
+  page.value = 1
+  shopList.value = []
+  await loadShops()
+}
+
+// 页面加载
+onMounted(() => {
+  loadShops()
+})
 </script>
 
 <style lang="scss">
 .follow-shops {
   min-height: 100vh;
-  padding: 20rpx;
   background-color: #f8f8f8;
+}
 
-  .shop-list {
-    .shop-item {
-      display: flex;
-      padding: 20rpx;
-      margin-bottom: 20rpx;
-      background-color: #fff;
-      border-radius: 12rpx;
+.shop-list {
+  height: 100vh;
+  padding: 20rpx;
+}
 
-      .shop-logo {
-        width: 120rpx;
-        height: 120rpx;
-        margin-right: 20rpx;
-        border-radius: 8rpx;
+.shop-items {
+  .shop-item {
+    display: flex;
+    align-items: center;
+    padding: 30rpx;
+    margin-bottom: 20rpx;
+    background-color: #fff;
+    border-radius: 16rpx;
+
+    .shop-avatar {
+      width: 100rpx;
+      height: 100rpx;
+      margin-right: 20rpx;
+      border-radius: 50%;
+    }
+
+    .shop-info {
+      flex: 1;
+      margin-right: 20rpx;
+
+      .shop-name {
+        display: block;
+        margin-bottom: 12rpx;
+        font-size: 30rpx;
+        font-weight: bold;
+        color: #333;
       }
 
-      .shop-info {
-        display: flex;
-        flex: 1;
-        flex-direction: column;
-        justify-content: space-between;
+      .shop-stats {
+        margin-bottom: 12rpx;
+        font-size: 24rpx;
+        color: #666;
 
-        .shop-name {
-          font-size: 28rpx;
-          font-weight: bold;
-          color: #333;
-        }
-
-        .shop-desc {
-          font-size: 24rpx;
-          line-height: 1.4;
-          color: #666;
-        }
-
-        .shop-data {
-          display: flex;
-          gap: 20rpx;
-          font-size: 24rpx;
-          color: #999;
+        text {
+          margin-right: 20rpx;
         }
       }
 
-      .shop-actions {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-around;
-        margin-left: 20rpx;
+      .favorite-time {
+        font-size: 24rpx;
+        color: #999;
       }
     }
   }
+}
 
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 100rpx 0;
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+  font-size: 24rpx;
+  color: #999;
 
-    image {
-      width: 240rpx;
-      height: 240rpx;
-      margin-bottom: 20rpx;
-    }
+  .wd-loading {
+    margin-right: 10rpx;
+  }
+}
 
-    text {
-      margin-bottom: 30rpx;
-      font-size: 28rpx;
-      color: #999;
-    }
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 0;
+
+  .empty-icon {
+    width: 200rpx;
+    height: 200rpx;
+    margin-bottom: 20rpx;
+  }
+
+  text {
+    font-size: 28rpx;
+    color: #999;
   }
 }
 </style>

@@ -52,12 +52,22 @@ const http = {
     })
   },
 
-  get<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+  get<T>(url: string, options?: { params?: Record<string, any> }): Promise<ApiResponse<T>> {
+    const queryString = options?.params ? this.buildQueryString(options.params) : ''
     return this.request<T>({
-      url,
+      url: url + queryString,
       method: 'GET',
-      data,
     })
+  },
+
+  buildQueryString(params: Record<string, any>): string {
+    const parts: string[] = []
+    for (const key in params) {
+      if (params[key] != null && params[key] !== '') {
+        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+      }
+    }
+    return parts.length > 0 ? '?' + parts.join('&') : ''
   },
 
   post<T>(url: string, data?: any): Promise<ApiResponse<T>> {

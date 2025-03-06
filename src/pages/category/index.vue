@@ -82,8 +82,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
-import { getCategories, getCategoryProducts } from '@/services/category'
-import type { Category, Product } from '@/services/category'
+import { getCategoryTree, getCategoryProducts } from '@/api/category'
+import type { Category, Product, ProductQueryParams } from '@/api/category'
 
 const router = useRouter()
 
@@ -106,17 +106,21 @@ const goodsList = ref<Product[]>([])
 
 // 计算当前分类
 const currentCategory = computed(() => {
-  return categories.value.find((item) => item.id === activeCategory.value) || categories.value[0]
+  return (
+    categories.value.find((item: Category) => item.id === activeCategory.value) ||
+    categories.value[0]
+  )
 })
 
 // 加载分类数据
 const loadCategories = async () => {
   try {
-    const res = await getCategories()
-    if (res.data) {
+    const res = await getCategoryTree()
+    if (res.code === 200 && res.data) {
       categories.value = res.data
       if (categories.value.length > 0) {
         activeCategory.value = categories.value[0].id
+        loadGoods()
       }
     }
   } catch (error: any) {
@@ -134,9 +138,10 @@ const handleCategoryClick = (category: Category) => {
 
 // 处理子分类点击
 const handleSubCategoryClick = (subCategory: Category) => {
-  router.navigate(
-    '/pages-sub/goods/list?categoryId=' + subCategory.id + '&name=' + subCategory.name,
-  )
+  router.navigate('/pages-sub/goods/list', {
+    categoryId: subCategory.id,
+    name: subCategory.name,
+  })
 }
 
 // 加载商品数据
@@ -145,21 +150,25 @@ const loadGoods = async () => {
   isLoading.value = true
 
   try {
-    const res = await getCategoryProducts({
-      categoryId: activeCategory.value,
+    const params: ProductQueryParams = {
       pageNum: page.value,
       pageSize: pageSize.value,
-    })
+      categoryId: activeCategory.value,
+      sort: 'new',
+    }
 
-    if (res.data) {
+    const res = await getCategoryProducts(params)
+    if (res.code === 200 && res.data) {
+      const { records, total, size, current } = res.data
+
       if (page.value === 1) {
-        goodsList.value = res.data.records
+        goodsList.value = records
       } else {
-        goodsList.value = [...goodsList.value, ...res.data.records]
+        goodsList.value = [...goodsList.value, ...records]
       }
 
       // 如果没有更多数据了，禁止继续加载
-      if (res.data.current >= res.data.pages) {
+      if (current >= total / size) {
         isLoading.value = false
       } else {
         page.value++
@@ -179,12 +188,16 @@ const handleSearch = () => {
     return
   }
 
-  router.navigate('/pages-sub/goods/search?keyword=' + encodeURIComponent(searchKeyword.value))
+  router.navigate('/pages-sub/goods/search', {
+    keyword: searchKeyword.value,
+  })
 }
 
 // 跳转到商品详情
 const navigateToDetail = (item: Product) => {
-  router.navigate('/pages-sub/goods/detail?id=' + item.id)
+  router.navigate('/pages-sub/goods/detail', {
+    id: item.id,
+  })
 }
 
 // 加载更多
@@ -335,29 +348,47 @@ onMounted(() => {
     padding: 20rpx;
 
     .goods-item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
       background-color: #fff;
-      border-radius: 12rpx;
-      box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
+      border-radius: 16rpx;
+      box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+      transition: all 0.3s ease;
+
+      &:active {
+        box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.02);
+        transform: translateY(2rpx);
+      }
 
       .goods-image {
         width: 100%;
-        height: 300rpx;
+        height: 320rpx;
+        background-color: #f7f8fa;
+        transition: transform 0.3s ease;
       }
 
       .goods-info {
-        padding: 16rpx;
+        position: relative;
+        flex: 1;
+        padding: 20rpx 24rpx;
 
         .goods-name {
+          display: block;
+          margin-bottom: 12rpx;
           font-size: 28rpx;
-          font-weight: bold;
+          font-weight: 600;
+          line-height: 1.4;
           color: #333;
           @include text-ellipsis(2);
         }
 
         .goods-desc {
-          margin: 8rpx 0;
+          display: block;
+          margin-bottom: 16rpx;
           font-size: 24rpx;
+          line-height: 1.4;
           color: #999;
           @include text-ellipsis(1);
         }
@@ -366,33 +397,85 @@ onMounted(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-top: 12rpx;
 
           .goods-price {
-            font-size: 32rpx;
-            font-weight: bold;
-            color: #ff6b35;
+            font-size: 36rpx;
+            font-weight: 600;
+            line-height: 1;
+            color: #ff4d4f;
 
             &::before {
+              margin-right: 2rpx;
               font-size: 24rpx;
+              font-weight: normal;
               content: '¥';
             }
           }
 
           .goods-sales {
-            font-size: 24rpx;
+            padding: 4rpx 12rpx;
+            font-size: 22rpx;
             color: #999;
+            background-color: #f7f8fa;
+            border-radius: 20rpx;
           }
         }
+      }
+
+      // 添加商品标签（如果需要）
+      .goods-tag {
+        position: absolute;
+        top: 16rpx;
+        left: 16rpx;
+        padding: 4rpx 12rpx;
+        font-size: 20rpx;
+        color: #fff;
+        background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
+        border-radius: 8rpx 8rpx 8rpx 0;
+        opacity: 0.9;
+      }
+
+      // 添加收藏按钮（如果需要）
+      .favorite-btn {
+        position: absolute;
+        top: 16rpx;
+        right: 16rpx;
+        width: 56rpx;
+        height: 56rpx;
+        line-height: 56rpx;
+        color: #fff;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(4px);
+        border-radius: 50%;
       }
     }
   }
 
   .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 30rpx;
     font-size: 24rpx;
     color: #999;
-    text-align: center;
+
+    &::before {
+      width: 30rpx;
+      height: 30rpx;
+      margin-right: 10rpx;
+      content: '';
+      border: 2rpx solid #ddd;
+      border-top-color: #999;
+      border-radius: 50%;
+      animation: loading 0.8s linear infinite;
+    }
+  }
+}
+
+@keyframes loading {
+  to {
+    transform: rotate(360deg);
   }
 }
 

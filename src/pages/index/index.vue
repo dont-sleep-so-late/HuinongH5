@@ -113,6 +113,10 @@
         :show-refresher-when-reload="true"
         :auto-shows-back-to-top="true"
         :loading-more-no-more-text="'没有更多了'"
+        :default-page-size="10"
+        :fixed="false"
+        height="800"
+        :auto="true"
       >
         <view class="goods-grid">
           <view
@@ -149,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { getHomeBanners } from '@/api/banner'
 import { getProductList } from '@/api/product'
 import { showToast } from '@/utils/toast'
@@ -157,7 +161,10 @@ import { getUserInfo as fetchUserInfo } from '@/services/user'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from '@/hooks/router'
 import type { Banner } from '@/api/banner'
-import type { Product, SortField, SortOrder } from '@/api/product'
+import type { ProductBase, SortField, SortOrder } from '@/api/product'
+import type { PageResponse } from '@/types/api'
+import type { UserInfo as StoreUserInfo } from '@/stores/user'
+import type { UserInfo as ServiceUserInfo } from '@/services/user'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -197,7 +204,7 @@ const handleBannerClick = (url?: string) => {
 }
 
 // 商品列表数据
-const goodsList = ref<Product[]>([])
+const goodsList = ref<ProductBase[]>([])
 const paging = ref<any>(null)
 const sortField = ref<SortField>('time')
 const sortOrder = ref<SortOrder>('desc')
@@ -213,11 +220,77 @@ const priceIcon = computed(() => {
   return 'icon-arrow-up-down'
 })
 
+// 查询商品列表
+const queryList = async (pageNo: number, pageSize: number) => {
+  try {
+    console.log('开始查询商品列表:', {
+      pageNo,
+      pageSize,
+      sortField: sortField.value,
+      sortOrder: sortOrder.value,
+    })
+    const res = await getProductList({
+      pageNum: pageNo,
+      pageSize,
+      sortField: sortField.value,
+      sortOrder: sortOrder.value,
+    })
+
+    console.log('商品列表响应:', res)
+
+    if (res.code === 200 && res.data) {
+      const pageData = res.data as unknown as PageResponse<ProductBase>
+      console.log('解析后的商品数据:', pageData)
+
+      // 手动更新商品列表
+      const newList = pageData.records || []
+      if (pageNo === 1) {
+        goodsList.value = newList
+      } else {
+        goodsList.value = [...goodsList.value, ...newList]
+      }
+      console.log('更新后的商品列表:', goodsList.value)
+
+      return {
+        list: newList,
+        total: pageData.total || 0,
+        pageSize: pageData.size || pageSize,
+        pageNo: pageData.current || pageNo,
+      }
+    }
+    return {
+      list: [],
+      total: 0,
+      pageSize,
+      pageNo,
+    }
+  } catch (error: any) {
+    console.error('获取商品列表失败:', error)
+    showToast(error.message || '获取商品列表失败')
+    return {
+      list: [],
+      total: 0,
+      pageSize,
+      pageNo,
+    }
+  }
+}
+
+// 监听商品列表变化
+watch(
+  goodsList,
+  (newVal) => {
+    console.log('商品列表监听到变化:', newVal)
+  },
+  { deep: true },
+)
+
 // 处理排序方式切换
 const handleSort = (field: SortField) => {
   if (sortField.value === field) return
   sortField.value = field
   sortOrder.value = 'desc'
+  goodsList.value = [] // 清空当前列表
   paging.value?.reload()
 }
 
@@ -225,36 +298,8 @@ const handleSort = (field: SortField) => {
 const handleSortPrice = () => {
   sortField.value = 'price'
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  goodsList.value = [] // 清空当前列表
   paging.value?.reload()
-}
-
-// 查询商品列表
-const queryList = async (pageNo: number, pageSize: number) => {
-  try {
-    const res = await getProductList({
-      page: pageNo,
-      pageSize,
-      sortField: sortField.value,
-      sortOrder: sortOrder.value,
-    })
-
-    if (res.code === 200 && res.data) {
-      return {
-        list: res.data.records,
-        total: res.data.total,
-      }
-    }
-    return {
-      list: [],
-      total: 0,
-    }
-  } catch (error: any) {
-    showToast(error.message || '获取商品列表失败')
-    return {
-      list: [],
-      total: 0,
-    }
-  }
 }
 
 // 页面跳转方法
@@ -298,8 +343,13 @@ const navigateToDetail = (id: number) => {
 const getUserInfo = async () => {
   try {
     const res = await fetchUserInfo()
-    if (res.data) {
-      userStore.updateUserInfo(res.data)
+    if (res.code === 200 && res.data) {
+      const serviceUserInfo = res.data as unknown as ServiceUserInfo
+      const storeUserInfo: StoreUserInfo = {
+        ...serviceUserInfo,
+        verified: serviceUserInfo.status === 1,
+      }
+      userStore.updateUserInfo(storeUserInfo)
     }
   } catch (error: any) {
     showToast(error.message || '获取用户信息失败')
@@ -308,10 +358,16 @@ const getUserInfo = async () => {
 
 // 页面加载时获取用户信息
 onMounted(() => {
+  console.log('页面加载，开始初始化数据')
   fetchBanners()
   if (userStore.isLoggedIn) {
     getUserInfo()
   }
+  // 初始加载商品列表
+  nextTick(() => {
+    console.log('开始加载商品列表')
+    paging.value?.reload()
+  })
 })
 </script>
 
@@ -436,6 +492,7 @@ onMounted(() => {
 }
 
 .goods-section {
+  height: 800px;
   margin: 20rpx;
   overflow: hidden;
   background-color: #fff;
@@ -443,10 +500,14 @@ onMounted(() => {
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
 
   .section-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 24rpx;
+    background-color: #fff;
     border-bottom: 2rpx solid #f5f5f5;
 
     .title {
@@ -490,91 +551,92 @@ onMounted(() => {
       }
     }
   }
-}
 
-.goods-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20rpx;
-  padding: 20rpx;
+  .goods-grid {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20rpx;
+    padding: 20rpx;
 
-  .goods-item {
-    display: flex;
-    flex-direction: column;
-    background-color: #fff;
-    border-radius: 16rpx;
-    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
-    transition: transform 0.2s;
-
-    &:active {
-      transform: scale(0.98);
-    }
-
-    .goods-image {
-      width: 100%;
-      height: 320rpx;
-      border-radius: 16rpx 16rpx 0 0;
-    }
-
-    .goods-info {
+    .goods-item {
       display: flex;
-      flex: 1;
       flex-direction: column;
-      padding: 20rpx;
+      background-color: #fff;
+      border-radius: 16rpx;
+      box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s;
 
-      .goods-name {
-        margin-bottom: 16rpx;
-        font-size: 28rpx;
-        font-weight: bold;
-        color: #333;
-        @include text-ellipsis(2);
+      &:active {
+        transform: scale(0.98);
       }
 
-      .goods-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 8rpx;
-        margin-bottom: 16rpx;
+      .goods-image {
+        width: 100%;
+        height: 320rpx;
+        border-radius: 16rpx 16rpx 0 0;
+      }
 
-        .meta-item {
+      .goods-info {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        padding: 20rpx;
+
+        .goods-name {
+          margin-bottom: 16rpx;
+          font-size: 28rpx;
+          font-weight: bold;
+          color: #333;
+          @include text-ellipsis(2);
+        }
+
+        .goods-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 8rpx;
+          margin-bottom: 16rpx;
+
+          .meta-item {
+            display: flex;
+            align-items: center;
+            font-size: 24rpx;
+            color: #666;
+
+            .meta-icon {
+              margin-right: 8rpx;
+              color: #018d71;
+            }
+          }
+        }
+
+        .price-action {
           display: flex;
           align-items: center;
-          font-size: 24rpx;
-          color: #666;
+          justify-content: space-between;
+          margin-top: auto;
 
-          .meta-icon {
-            margin-right: 8rpx;
-            color: #018d71;
+          .price-box {
+            display: flex;
+            align-items: baseline;
+
+            .price-symbol {
+              font-size: 24rpx;
+              color: #ff6b6b;
+            }
+
+            .price-value {
+              margin-left: 4rpx;
+              font-size: 32rpx;
+              font-weight: bold;
+              color: #ff6b6b;
+            }
           }
-        }
-      }
 
-      .price-action {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-top: auto;
-
-        .price-box {
-          display: flex;
-          align-items: baseline;
-
-          .price-symbol {
+          .sales-count {
             font-size: 24rpx;
-            color: #ff6b6b;
+            color: #999;
           }
-
-          .price-value {
-            margin-left: 4rpx;
-            font-size: 32rpx;
-            font-weight: bold;
-            color: #ff6b6b;
-          }
-        }
-
-        .sales-count {
-          font-size: 24rpx;
-          color: #999;
         }
       }
     }

@@ -22,9 +22,6 @@
         </text>
       </view>
       <text class="title">{{ goodsInfo.name }}</text>
-      <view class="tags" v-if="goodsInfo.tags && goodsInfo.tags.length">
-        <text v-for="(tag, index) in goodsInfo.tags" :key="index" class="tag">{{ tag }}</text>
-      </view>
       <text class="desc">{{ goodsInfo.description }}</text>
     </view>
 
@@ -32,17 +29,19 @@
     <view class="spec-section">
       <view class="section-header">
         <text class="title">规格</text>
-        <text class="selected-spec">已选：{{ selectedSpec || '请选择' }}</text>
+        <text class="selected-spec">
+          已选：{{ selectedSpec ? selectedSpec.specValue : '请选择' }}
+        </text>
       </view>
       <view class="spec-list">
         <view
           v-for="spec in specifications"
-          :key="spec.value"
+          :key="spec.id"
           class="spec-item"
-          :class="{ active: selectedSpec === spec.value }"
-          @click="selectSpec(spec.value)"
+          :class="{ active: selectedSpec && selectedSpec.id === spec.id }"
+          @click="selectSpec(spec)"
         >
-          {{ spec.label }}
+          {{ spec.specValue }}
         </view>
       </view>
     </view>
@@ -52,7 +51,15 @@
       <view class="section-header">
         <text class="title">商品详情</text>
       </view>
-      <rich-text :nodes="goodsInfo.detail"></rich-text>
+      <view class="detail-content">
+        <image
+          v-for="(image, index) in goodsInfo.detailImages"
+          :key="index"
+          :src="image"
+          mode="widthFix"
+          class="detail-image"
+        />
+      </view>
     </view>
 
     <!-- 底部操作栏 -->
@@ -61,6 +68,16 @@
         <view class="action-item" @click="goToCart">
           <wd-icon name="cart" size="24" />
           <text>购物车</text>
+        </view>
+        <view class="action-item" @click="handleToggleFavorite">
+          <wd-icon
+            :name="isFavorite ? 'star-fill' : 'star'"
+            size="24"
+            :color="isFavorite ? '#ff6b6b' : ''"
+          />
+          <text :style="{ color: isFavorite ? '#ff6b6b' : '' }">
+            {{ isFavorite ? '已关注' : '关注' }}
+          </text>
         </view>
       </view>
       <view class="right-actions">
@@ -75,63 +92,88 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
-import { addToCart } from '@/services/cart'
-import { previewBuyNowOrder } from '@/services/order'
-import type { OrderPreview } from '@/services/order'
+import { getProductDetail, getProductSpecs } from '@/api/product'
+import { addToCart } from '@/api/cart'
+import { previewBuyNowOrder } from '@/api/order'
+import { toggleFavoriteProduct } from '@/api/profile'
+import type { ProductDetail, ProductSpec } from '@/api/product'
+import type { AddCartParams } from '@/api/cart'
+
+const router = useRouter()
 
 // 商品信息
-const goodsInfo = ref({
+const goodsInfo = ref<ProductDetail>({
   id: 0,
   name: '',
-  price: 0,
-  originalPrice: 0,
   description: '',
-  tags: [],
-  detail: '',
+  mainImage: '',
+  detailImages: [],
+  categoryId: 0,
+  categoryName: '',
+  price: 0,
+  stock: 0,
+  status: 1,
+  salesVolume: 0,
+  region: '',
+  unit: '',
+  weight: 0,
+  createdTime: '',
+  updatedTime: '',
+  sellerId: 0,
+  sellerName: '',
+  auditStatus: 1,
+  auditRemark: null,
+  sellerAvatar: '',
 })
 
+// 是否已关注
+const isFavorite = ref(false)
+
 // 商品图片
-const goodsImages = ref<string[]>([])
+const goodsImages = computed(() => {
+  return [goodsInfo.value.mainImage, ...goodsInfo.value.detailImages]
+})
 
 // 规格相关
-const specifications = ref([
-  { label: '1斤装', value: '1斤' },
-  { label: '2斤装', value: '2斤' },
-  { label: '5斤装', value: '5斤' },
-])
-const selectedSpec = ref('')
+const specifications = ref<ProductSpec[]>([])
+const selectedSpec = ref<ProductSpec | null>(null)
+
+// 选择规格
+const selectSpec = (spec: ProductSpec) => {
+  selectedSpec.value = spec
+}
 
 // 获取商品详情
 const getGoodsDetail = async (id: string) => {
   try {
-    // TODO: 调用接口获取商品详情
-    // 模拟数据
-    goodsInfo.value = {
-      id: Number(id),
-      name: '有机大米',
-      price: 29.9,
-      originalPrice: 39.9,
-      description: '优质有机大米，无农药残留',
-      tags: ['有机认证', '无农药', '产地直供'],
-      detail: '<p>这是商品详情的富文本内容</p>',
+    const res = await getProductDetail(Number(id))
+    if (res.code === 200 && res.data) {
+      goodsInfo.value = res.data as unknown as ProductDetail
+      // 获取商品规格
+      const specRes = await getProductSpecs(Number(id))
+      if (specRes.code === 200 && specRes.data) {
+        specifications.value = specRes.data as unknown as ProductSpec[]
+      }
     }
-    goodsImages.value = [
-      '/static/goods/rice1.jpg',
-      '/static/goods/rice2.jpg',
-      '/static/goods/rice3.jpg',
-    ]
-  } catch (error) {
-    console.error('获取商品详情失败：', error)
-    showToast('获取商品详情失败')
+  } catch (error: any) {
+    showToast(error.message || '获取商品详情失败')
   }
 }
 
-// 选择规格
-const selectSpec = (spec: string) => {
-  selectedSpec.value = spec
+// 关注/取消关注商品
+const handleToggleFavorite = async () => {
+  try {
+    const res = await toggleFavoriteProduct(goodsInfo.value.id)
+    if (res.code === 200) {
+      isFavorite.value = Boolean(res.data)
+      showToast(isFavorite.value ? '关注成功' : '取消关注成功')
+    }
+  } catch (error: any) {
+    showToast(error.message || '操作失败')
+  }
 }
 
 // 加入购物车
@@ -142,12 +184,15 @@ const handleAddToCart = async () => {
   }
 
   try {
-    await addToCart({
+    const params: AddCartParams = {
       productId: goodsInfo.value.id,
-      specId: Number(selectedSpec.value),
       quantity: 1,
-    })
-    showToast('添加成功')
+      specId: selectedSpec.value.id,
+    }
+    const res = await addToCart(params)
+    if (res.code === 200) {
+      showToast('添加成功')
+    }
   } catch (error: any) {
     showToast(error.message || '添加失败')
   }
@@ -163,18 +208,18 @@ const handleBuyNow = async () => {
   try {
     const res = await previewBuyNowOrder({
       productId: goodsInfo.value.id,
-      specId: Number(selectedSpec.value),
+      specId: selectedSpec.value.id,
       quantity: 1,
     })
 
-    if (res.data) {
+    if (res.code === 200 && res.data) {
       // 将预览数据存储到本地，用于订单确认页面
       uni.setStorageSync('order_preview', {
         type: 'buy_now',
         data: res.data,
         params: {
           productId: goodsInfo.value.id,
-          specId: Number(selectedSpec.value),
+          specId: selectedSpec.value.id,
           quantity: 1,
         },
       })
@@ -248,21 +293,6 @@ onMounted(() => {
     font-size: 32rpx;
     font-weight: bold;
     color: #333;
-  }
-
-  .tags {
-    display: flex;
-    flex-wrap: wrap;
-    margin-bottom: 20rpx;
-
-    .tag {
-      padding: 4rpx 16rpx;
-      margin: 0 20rpx 10rpx 0;
-      font-size: 24rpx;
-      color: #ff6b6b;
-      background-color: #fff5f5;
-      border-radius: 4rpx;
-    }
   }
 
   .desc {
