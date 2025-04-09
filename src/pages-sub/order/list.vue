@@ -98,7 +98,8 @@ import {
   type OrderListItem,
   type OrderStatus,
 } from '@/api/order'
-
+import { createPayOrder, getPayResult } from '@/api/pay'
+import type { PaymentMethod } from '@/api/pay'
 const router = useRouter()
 
 // 当前选中的标签
@@ -112,6 +113,39 @@ const pageSize = ref(10)
 
 // 订单列表
 const orderList = ref<OrderListItem[]>([])
+
+// 订单类型定义
+interface OrderItem {
+  productId: number
+  productName: string
+  productImage: string
+  specId: number
+  specName: string
+  specValue: string
+  price: number
+  quantity: number
+  subtotal: number
+}
+
+interface Order {
+  id: number
+  orderNo: string
+  status: OrderStatus
+  totalAmount: number
+  freightAmount: number
+  payableAmount: number
+  createdTime: string
+  items: OrderItem[]
+  paymentMethod?: PaymentMethod
+}
+
+interface OrderListResponse {
+  list: Order[]
+  total: number
+  pageSize: number
+  pageNum: number
+  pages: number
+}
 
 // 获取订单状态文本
 const getStatusText = (status: OrderStatus) => {
@@ -132,26 +166,23 @@ const loadOrders = async () => {
 
   try {
     const res = await getOrderList({
-      status: activeTab.value === 'all' ? undefined : activeTab.value,
       pageNum: page.value,
       pageSize: pageSize.value,
+      status: activeTab.value === 'all' ? undefined : activeTab.value,
     })
 
     if (res.code === 200 && res.data) {
-      const orderData = res.data
-      if (page.value === 1) {
-        orderList.value = orderData.list
-      } else {
-        orderList.value = [...orderList.value, ...orderData.list]
-      }
+      const responseData = res.data as unknown as OrderListResponse
+      orderList.value = responseData.list
       // 如果没有更多数据了，禁止继续加载
-      if (orderData.pageNum >= orderData.pages) {
+      if (responseData.pageNum >= responseData.pages) {
         isLoading.value = false
       } else {
         page.value++
       }
     }
   } catch (error: any) {
+    console.error('获取订单列表失败：', error)
     showToast(error.message || '加载失败')
   } finally {
     isLoading.value = false
@@ -184,9 +215,96 @@ const handleCancelOrder = async (order: OrderListItem) => {
 }
 
 // 支付订单
-const payOrder = (order: any) => {
-  // TODO: 调用支付接口
-  showToast('支付功能开发中')
+const payOrder = async (order: Order) => {
+  if (!order.paymentMethod) {
+    showToast('请选择支付方式')
+    return
+  }
+
+  try {
+    const res = await createPayOrder(order.id.toString(), order.paymentMethod)
+    if (res.code === 200 && res.data) {
+      const payData = res.data
+      if (payData.paymentMethod === 'ALIPAY') {
+        // 使用web-view打开支付宝支付页面
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>支付宝支付</title>
+            </head>
+            <body>
+              ${payData.paymentForm}
+            </body>
+          </html>
+        `
+        // 打开web-view页面
+        uni.navigateTo({
+          url: `/pages-sub/common/web-view?html=${encodeURIComponent(htmlContent)}&title=支付宝支付`,
+        })
+
+        // 启动轮询查询支付结果
+        startPollingPayResult(order.id.toString())
+      } else if (payData.paymentMethod === 'WECHAT') {
+        // 微信支付，调用微信支付SDK
+        uni.requestPayment({
+          provider: 'wxpay',
+          ...JSON.parse(payData.paymentForm),
+          success: () => {
+            showToast('支付成功')
+            // 刷新订单列表
+            loadOrders()
+          },
+          fail: () => {
+            showToast('支付失败')
+          },
+        })
+      }
+    } else {
+      showToast(res.message || '支付失败')
+    }
+  } catch (error: any) {
+    showToast(error.message || '支付失败')
+  }
+}
+
+// 轮询查询支付结果
+const startPollingPayResult = (orderId: string) => {
+  const maxAttempts = 60 // 最多轮询60次，即10分钟
+  let attempts = 0
+
+  const poll = async () => {
+    try {
+      const res = await getPayResult(orderId)
+      if (res.code === 200 && res.data) {
+        const result = res.data
+        if (result.status === 'PAID') {
+          // 支付成功
+          showToast('支付成功')
+          // 刷新订单列表
+          loadOrders()
+          return
+        } else if (result.status === 'CLOSED') {
+          // 订单关闭
+          showToast('订单已关闭')
+          return
+        }
+      }
+
+      // 继续轮询
+      attempts++
+      if (attempts < maxAttempts) {
+        setTimeout(poll, 10000) // 每10秒查询一次
+      }
+    } catch (error) {
+      console.error('查询支付结果失败：', error)
+    }
+  }
+
+  // 开始轮询
+  poll()
 }
 
 // 查看订单详情

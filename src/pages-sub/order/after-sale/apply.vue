@@ -54,13 +54,21 @@
           </wd-cell>
           <wd-cell title="凭证图片">
             <template #right>
-              <wd-upload-img
-                v-model="form.images"
-                :max-count="6"
-                :size-type="['compressed']"
-                @delete="handleDeleteImage"
-                @oversize="handleOversize"
-              />
+              <view class="upload-list">
+                <wd-upload-image
+                  v-for="(image, index) in form.images"
+                  :key="index"
+                  v-model="form.images[index]"
+                  class="upload-item"
+                  @delete="handleDeleteImage(index)"
+                />
+                <wd-upload-image
+                  v-if="form.images.length < 6"
+                  v-model="newImage"
+                  class="upload-item"
+                  @change="handleImageChange"
+                />
+              </view>
             </template>
           </wd-cell>
         </wd-cell-group>
@@ -94,10 +102,11 @@ const router = useRouter()
 const detail = ref<any>({})
 const submitting = ref(false)
 const showReasonPicker = ref(false)
+const newImage = ref('')
 
 // 表单数据
 const form = reactive({
-  type: 'refund',
+  type: 'refund' as 'refund' | 'return',
   reason: '',
   refundAmount: '',
   description: '',
@@ -137,6 +146,12 @@ const getDetail = async () => {
 // 选择原因
 const handleSelectReason = (item: any) => {
   form.reason = item.value
+}
+
+// 处理图片上传成功
+const handleImageChange = (url: string) => {
+  form.images.push(url)
+  newImage.value = ''
 }
 
 // 删除图片
@@ -256,6 +271,17 @@ onMounted(() => {
     .form {
       .placeholder {
         color: #999;
+      }
+
+      .upload-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20rpx;
+
+        .upload-item {
+          width: 200rpx;
+          height: 200rpx;
+        }
       }
     }
   }

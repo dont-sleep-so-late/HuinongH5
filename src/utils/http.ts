@@ -29,6 +29,7 @@ const http = {
           ...options.header,
         },
         success: (res: any) => {
+          console.log('res:', res)
           // 处理响应
           if (res.statusCode === 200) {
             // 先经过响应拦截器处理
@@ -36,7 +37,7 @@ const http = {
             if (interceptedRes) {
               resolve(interceptedRes.data)
             } else {
-              reject(new Error('响应拦截器处理失败'))
+              reject(new Error('请求失败'))
             }
           } else {
             // 非200状态码，交给响应拦截器处理

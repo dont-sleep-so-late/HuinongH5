@@ -1,0 +1,26 @@
+{
+  "extends": [
+    "stylelint-config-recommended",
+    "stylelint-config-recommended-scss",
+    "stylelint-config-recommended-vue",
+    "stylelint-config-recess-order"
+  ],
+  "rules": {
+    "unit-no-unknown": [
+      true,
+      {
+        "ignoreUnits": ["rpx"]
+      }
+    ],
+    "at-rule-no-unknown": null,
+    "scss/at-rule-no-unknown": null,
+    "no-descending-specificity": null,
+    "declaration-property-value-no-unknown": null,
+    "property-no-unknown": [
+      true,
+      {
+        "ignoreProperties": ["box-shadow", "transform", "text-shadow"]
+      }
+    ]
+  }
+}

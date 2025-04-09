@@ -24,7 +24,7 @@ uni.addInterceptor('navigateTo', {
     // 如果未登录且不在白名单中，跳转到登录页
     if (!token && !whiteList.includes(params.url)) {
       uni.navigateTo({
-        url: '/pages/login/index',
+        url: '/pages/role/index',
       })
       return false
     }
@@ -95,7 +95,12 @@ uni.addInterceptor('redirectTo', {
     return true
   },
   fail(err) {
-    console.log('重定向拦截器错误:', err)
+    console.error('重定向拦截器错误:', err)
+    uni.clearStorageSync()
+    uni.showToast({
+      title: '页面跳转失败',
+      icon: 'none',
+    })
     return false
   },
 })

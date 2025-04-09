@@ -214,8 +214,6 @@ onMounted(() => {
 </script>
 
 <style lang="scss">
-@import '@/styles/mixins';
-
 .container {
   height: 100vh;
   background-color: #f5f5f5;
@@ -381,7 +379,7 @@ onMounted(() => {
           font-weight: 600;
           line-height: 1.4;
           color: #333;
-          @include text-ellipsis(2);
+          @in (2);
         }
 
         .goods-desc {
@@ -390,7 +388,6 @@ onMounted(() => {
           font-size: 24rpx;
           line-height: 1.4;
           color: #999;
-          @include text-ellipsis(1);
         }
 
         .goods-meta {

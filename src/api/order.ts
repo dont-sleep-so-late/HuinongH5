@@ -1,5 +1,6 @@
 import { http } from '@/utils/http'
 import type { ApiResponse } from '@/types/api'
+import type { PaymentMethod } from '@/api/pay'
 
 // 售后列表参数
 interface AfterSaleListParams {
@@ -66,15 +67,12 @@ export interface OrderPreviewResponse {
   address?: AddressInfo
 }
 
-// 订单创建参数
+// 创建订单请求参数
 export interface CreateOrderParams {
-  productId: number
-  specId: number
-  quantity: number
   addressId: number
-  couponId?: number
   remark?: string
-  paymentMethod: 'alipay' | 'wxpay'
+  paymentMethod: PaymentMethod
+  [key: string]: any
 }
 
 // 支付参数
@@ -82,13 +80,12 @@ export interface PaymentParams {
   payUrl: string
 }
 
-// 订单创建响应
+// 创建订单响应
 export interface CreateOrderResponse {
-  orderId: number
+  orderId: string
   orderNo: string
+  totalAmount: number
   payableAmount: number
-  paymentMethod: string
-  paymentParams: PaymentParams
 }
 
 // 物流信息
@@ -155,26 +152,27 @@ export interface OrderDetail {
   shopAvatar: string
   deliveryType: string
   orderItems: OrderItem[]
+  paymentMethod?: PaymentMethod
 }
 
 // 获取售后列表
 export const getAfterSaleList = (params: AfterSaleListParams) => {
-  return http.get('/order/after-sale/list', { params })
+  return http.get('/orders/after-sale/list', { params })
 }
 
 // 获取售后详情
 export const getAfterSaleDetail = (id: number) => {
-  return http.get(`/order/after-sale/${id}`)
+  return http.get(`/orders/after-sale/${id}`)
 }
 
 // 申请售后
 export const applyAfterSale = (data: ApplyAfterSaleParams) => {
-  return http.post('/order/after-sale/apply', data)
+  return http.post('/orders/after-sale/apply', data)
 }
 
 // 取消售后
 export const cancelAfterSale = (id: number) => {
-  return http.post(`/order/after-sale/${id}/cancel`)
+  return http.post(`/orders/after-sale/${id}/cancel`)
 }
 
 // 立即购买预览
@@ -187,13 +185,17 @@ export function previewBuyNowOrder(params: {
 }
 
 // 立即购买下单
-export function createBuyNowOrder(params: CreateOrderParams) {
-  return http.post<ApiResponse<CreateOrderResponse>>('/orders/buy-now', params)
+export const createBuyNowOrder = (
+  params: CreateOrderParams,
+): Promise<ApiResponse<CreateOrderResponse>> => {
+  return http.post('/orders/buy-now', params)
 }
 
 // 购物车下单
-export function createCartOrder(params: CreateOrderParams) {
-  return http.post<ApiResponse<CreateOrderResponse>>('/orders/cart', params)
+export const createCartOrder = (
+  params: CreateOrderParams,
+): Promise<ApiResponse<CreateOrderResponse>> => {
+  return http.post('/orders/cart', params)
 }
 
 // 获取订单列表

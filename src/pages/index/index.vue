@@ -63,8 +63,8 @@
           <view class="icon-wrapper planting">
             <wd-icon name="windows-filled" size="40"></wd-icon>
           </view>
-          <text>种植面积</text>
-          <text class="sub-text">科学规划</text>
+          <text>每日新闻</text>
+          <text class="sub-text">全国走势</text>
         </view>
         <view class="nav-item" @click="navigateToFarm">
           <view class="icon-wrapper farm">
@@ -372,8 +372,6 @@ onMounted(() => {
 </script>
 
 <style lang="scss">
-@import '@/styles/mixins';
-
 .container {
   width: 100%;
   min-height: 100vh;
@@ -588,7 +586,6 @@ onMounted(() => {
           font-size: 28rpx;
           font-weight: bold;
           color: #333;
-          @include text-ellipsis(2);
         }
 
         .goods-meta {

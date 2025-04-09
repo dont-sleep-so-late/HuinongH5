@@ -16,7 +16,7 @@
         </wd-button>
       </view>
       <view class="right">
-        <wd-button-group>
+        <view class="button-group">
           <wd-button
             v-for="btn in statusButtons"
             :key="btn.value"
@@ -26,22 +26,14 @@
           >
             {{ btn.text }}
           </wd-button>
-        </wd-button-group>
-        <wd-dropdown>
-          <wd-button size="small">
-            {{ currentSort.text }}
-            <wd-icon name="arrow-down" />
-          </wd-button>
-          <template #content>
-            <wd-dropdown-item
-              v-for="item in sortOptions"
-              :key="item.value"
-              :value="item.value"
-              :label="item.text"
-              @click="handleSort(item)"
-            />
-          </template>
-        </wd-dropdown>
+        </view>
+        <wd-drop-menu>
+          <wd-drop-menu-item
+            v-model="searchParams.sort"
+            :options="sortOptions"
+            @change="handleSort"
+          />
+        </wd-drop-menu>
       </view>
     </view>
 
@@ -49,38 +41,43 @@
     <z-paging ref="paging" v-model="goodsList" @query="queryGoodsList">
       <template #default>
         <view class="goods-list">
-          <view v-for="goods in goodsList" :key="goods.id" class="goods-item">
-            <image :src="goods.mainImage" mode="aspectFill" class="goods-image" />
-            <view class="goods-info">
-              <view class="goods-name">{{ goods.name }}</view>
-              <view class="goods-price">¥{{ goods.price }}</view>
-              <view class="goods-stats">
-                <text>库存: {{ goods.stock }}{{ goods.unit || '件' }}</text>
-                <text>销量: {{ goods.sales || 0 }}</text>
+          <template v-if="goodsList.length > 0">
+            <view v-for="goods in goodsList" :key="goods.id" class="goods-item">
+              <image :src="goods.mainImage" mode="aspectFill" class="goods-image" />
+              <view class="goods-info">
+                <view class="goods-name">{{ goods.name }}</view>
+                <view class="goods-price">¥{{ goods.price }}</view>
+                <view class="goods-stats">
+                  <text>库存: {{ goods.stock }}{{ goods.unit || '件' }}</text>
+                  <text>销量: {{ goods.sales || 0 }}</text>
+                </view>
+                <view
+                  class="goods-status"
+                  :class="{ on: goods.status === 1, off: goods.status === 0 }"
+                >
+                  {{ goods.status === 1 ? '已上架' : '已下架' }}
+                </view>
               </view>
-              <view
-                class="goods-status"
-                :class="{ on: goods.status === 1, off: goods.status === 0 }"
-              >
-                {{ goods.status === 1 ? '已上架' : '已下架' }}
+              <view class="goods-actions">
+                <wd-button type="warning" size="small" @click="handleEditGoods(goods)">
+                  编辑
+                </wd-button>
+                <wd-button
+                  :type="goods.status === 1 ? 'danger' : 'success'"
+                  size="small"
+                  @click="handleToggleStatus(goods)"
+                >
+                  {{ goods.status === 1 ? '下架' : '上架' }}
+                </wd-button>
+                <wd-button type="danger" size="small" @click="handleDeleteGoods(goods)">
+                  删除
+                </wd-button>
               </view>
             </view>
-            <view class="goods-actions">
-              <wd-button type="warning" size="small" @click="handleEditGoods(goods)">
-                编辑
-              </wd-button>
-              <wd-button
-                :type="goods.status === 1 ? 'danger' : 'success'"
-                size="small"
-                @click="handleToggleStatus(goods)"
-              >
-                {{ goods.status === 1 ? '下架' : '上架' }}
-              </wd-button>
-              <wd-button type="danger" size="small" @click="handleDeleteGoods(goods)">
-                删除
-              </wd-button>
-            </view>
-          </view>
+          </template>
+          <template v-else>
+            <wd-status-tip type="search" tip="暂无商品" />
+          </template>
         </view>
       </template>
     </z-paging>
@@ -151,8 +148,8 @@ const handleFilterStatus = (status?: GoodsStatus) => {
 }
 
 // 排序处理
-const handleSort = (sort: (typeof sortOptions)[0]) => {
-  searchParams.value.sort = sort.value || undefined
+const handleSort = ({ value }: { value: string }) => {
+  searchParams.value.sort = value || undefined
   reloadList()
 }
 
@@ -284,6 +281,26 @@ const handleDeleteGoods = (goods: GoodsItem) => {
       display: flex;
       gap: 20rpx;
       align-items: center;
+
+      .button-group {
+        display: inline-flex;
+
+        :deep(.wd-button) {
+          margin-right: -1px;
+          border-radius: 0;
+
+          &:first-child {
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+          }
+
+          &:last-child {
+            margin-right: 0;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+          }
+        }
+      }
     }
   }
 

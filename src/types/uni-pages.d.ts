@@ -46,6 +46,7 @@ interface NavigateToOptions {
        "/pages-sub/order/list" |
        "/pages-sub/order/detail" |
        "/pages-sub/order/create" |
+       "/pages-sub/order/result" |
        "/pages-sub/order/review" |
        "/pages-sub/order/logistics" |
        "/pages-sub/order/after-sale/list" |

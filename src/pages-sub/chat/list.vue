@@ -25,7 +25,7 @@
         </view>
       </template>
       <template v-else>
-        <wd-empty description="暂无聊天记录" />
+        <wd-status-tip type="search" tip="暂无聊天记录" />
       </template>
     </z-paging>
 
@@ -171,7 +171,6 @@ const handleAction = async (action: { name: string; value: string }) => {
         .text {
           font-size: 28rpx;
           color: #666;
-          @include text-ellipsis;
         }
       }
     }

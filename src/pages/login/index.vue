@@ -337,11 +337,7 @@ const handleLogin = async () => {
 
       // 跳转到首页
       router.reLaunch('/pages/index/index')
-    } else {
-      showToast(res.message || '登录失败')
     }
-  } catch (error: any) {
-    showToast(error.message || '登录失败')
   } finally {
     loading.value = false
   }

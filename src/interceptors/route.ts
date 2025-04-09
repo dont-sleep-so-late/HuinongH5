@@ -97,7 +97,7 @@ function checkAuth(url: string) {
   if (authPages.includes(path)) {
     const userStore = useUserStore()
     if (!userStore.isLoggedIn) {
-      uni.navigateTo({ url: '/pages/login/index' })
+      uni.navigateTo({ url: '/pages/role/index' })
       return false
     }
 

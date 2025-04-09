@@ -110,6 +110,7 @@ import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
 import { createBuyNowOrder, createCartOrder } from '@/api/order'
 import { getAddressList } from '@/api/address'
+import { createPayOrder, getPayResult, type PaymentMethod } from '@/api/pay'
 import type { ApiResponse } from '@/types/api'
 import type { CreateOrderResponse } from '@/api/order'
 
@@ -175,12 +176,22 @@ shopList.value.forEach((shop) => {
     .toFixed(2)
 })
 
-// 支付方式
+// 支付方式列表
 const paymentMethods = [
-  { id: 1, name: '微信支付', icon: 'icon-wechat' },
-  { id: 2, name: '支付宝', icon: 'icon-alipay' },
+  {
+    id: 'ALIPAY' as PaymentMethod,
+    name: '支付宝支付',
+    icon: 'icon-alipay',
+  },
+  {
+    id: 'WECHAT' as PaymentMethod,
+    name: '微信支付',
+    icon: 'icon-wechat',
+  },
 ]
-const selectedPayment = ref(1)
+
+// 选中的支付方式
+const selectedPayment = ref<PaymentMethod>('ALIPAY')
 
 // 订单预览数据类型定义
 interface OrderPreviewItem {
@@ -291,55 +302,146 @@ const selectCoupon = (shop: any) => {
   router.navigate(`/pages-sub/shop/coupons?id=${shop.id}`)
 }
 
-// 提交订单
-const submitOrder = async () => {
-  if (!address.value) {
-    showToast('请选择收货地址')
-    return
+// 轮询查询支付结果
+const startPollingPayResult = (orderId: string) => {
+  const maxAttempts = 60 // 最多轮询60次，即10分钟
+  let attempts = 0
+
+  const poll = async () => {
+    try {
+      const res = await getPayResult(orderId)
+      if (res.code === 200 && res.data) {
+        const result = res.data
+        if (result.status === 'PAID') {
+          // 支付成功
+          showToast('支付成功')
+          // 跳转到订单详情页
+          router.redirect(`/pages-sub/order/detail?orderId=${orderId}`)
+          return
+        } else if (result.status === 'CLOSED') {
+          // 订单关闭
+          showToast('订单已关闭')
+          return
+        }
+      }
+
+      // 继续轮询
+      attempts++
+      if (attempts < maxAttempts) {
+        setTimeout(poll, 10000) // 每10秒查询一次
+      }
+    } catch (error) {
+      console.error('查询支付结果失败：', error)
+    }
   }
 
+  // 开始轮询
+  poll()
+}
+
+// 处理支付
+const handlePayment = async (orderId: string) => {
   try {
-    const orderRequestParams = {
-      ...orderParams.value,
-      addressId: address.value.id,
-      ...(remark.value ? { remark: remark.value } : {}),
+    if (!orderId) {
+      showToast('订单不存在')
+      return
+    }
+    // 创建支付订单
+    const res = await createPayOrder(orderId, selectedPayment.value)
+    if (res.code === 200 && res.data) {
+      const payData = res.data
+      if (payData.paymentMethod === 'ALIPAY') {
+        // 使用web-view打开支付宝支付页面
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>支付宝支付</title>
+            </head>
+            <body>
+              ${payData.paymentForm}
+            </body>
+          </html>
+        `
+        // 打开web-view页面
+        uni.navigateTo({
+          url: `/pages-sub/common/web-view?html=${encodeURIComponent(htmlContent)}&title=支付宝支付`,
+        })
+
+        // 启动轮询查询支付结果
+        startPollingPayResult(orderId)
+      } else if (payData.paymentMethod === 'WECHAT') {
+        // 微信支付，调用微信支付SDK
+        uni.requestPayment({
+          provider: 'wxpay',
+          ...JSON.parse(payData.paymentForm),
+          success: () => {
+            showToast('支付成功')
+            // 跳转到订单详情页
+            router.redirect(`/pages-sub/order/detail?orderId=${orderId}`)
+          },
+          fail: () => {
+            showToast('支付失败')
+          },
+        })
+      }
+    } else {
+      showToast('创建支付订单失败')
+    }
+  } catch (error: any) {
+    showToast(error.message || '支付失败')
+  }
+}
+
+// 提交订单
+const submitOrder = async () => {
+  try {
+    // 校验表单
+    if (!address.value) {
+      showToast('请选择收货地址')
+      return
+    }
+    if (!selectedPayment.value) {
+      showToast('请选择支付方式')
+      return
     }
 
-    let orderId: number
+    // 创建订单
+    let orderId: string
     if (orderType.value === 'buy_now') {
       // 立即购买下单
-      const res = await createBuyNowOrder(orderRequestParams)
-      if (res.code === 200 && typeof res.data === 'number') {
-        orderId = res.data.id
+      const res = await createBuyNowOrder({
+        ...orderParams.value,
+        addressId: address.value.id,
+        ...(remark.value ? { remark: remark.value } : {}),
+        paymentMethod: selectedPayment.value,
+      })
+      if (res.code === 200 && res.data) {
+        orderId = res.data.orderId
       } else {
-        throw new Error(res.message || '下单失败')
+        throw new Error('下单失败')
       }
     } else {
       // 购物车下单
-      const res = await createCartOrder(orderRequestParams)
-
-      if (res.code === 200 && typeof res.data === 'number') {
-        orderId = res.data.id
+      const res = await createCartOrder({
+        ...orderParams.value,
+        addressId: address.value.id,
+        ...(remark.value ? { remark: remark.value } : {}),
+        paymentMethod: selectedPayment.value,
+      })
+      if (res.code === 200 && res.data) {
+        orderId = res.data.orderId
       } else {
-        throw new Error(res.message || '下单失败')
+        throw new Error('下单失败')
       }
     }
 
-    showToast('订单提交成功', { icon: 'success' })
-    setTimeout(() => {
-      // 清除订单预览数据
-      uni.removeStorageSync('order_preview')
-      // 跳转到订单详情页
-      uni.navigateTo({
-        url: `/pages-sub/order/detail?id=${orderId}`,
-        fail: (err) => {
-          console.error('导航失败:', err)
-          showToast('跳转订单详情页失败')
-        },
-      })
-    }, 1500)
+    // 创建订单成功，进行支付
+    await handlePayment(orderId)
   } catch (error: any) {
-    showToast(error.message || '订单提交失败')
+    showToast(error.message || '提交订单失败')
   }
 }
 </script>

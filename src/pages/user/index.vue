@@ -178,7 +178,7 @@ const orderCounts = ref({
 // 页面跳转
 const navigateTo = (url: string) => {
   if (!userStore.isLoggedIn) {
-    router.navigate('/pages/login/index')
+    router.navigate('/pages/role/index')
     return
   }
   router.navigate(url)
@@ -197,7 +197,7 @@ const handleSettings = () => {
 // 农场操作
 const handleFarmAction = (action: 'weeding' | 'watering' | 'fertilizing' | 'harvesting') => {
   if (!userStore.isLoggedIn) {
-    router.navigate('/pages/login/index')
+    router.navigate('/pages/role/index')
     return
   }
   // TODO: 实现农场操作逻辑
@@ -219,7 +219,7 @@ const handleLogout = async () => {
           // 显示提示
           showToast('退出成功')
           // 跳转到登录页
-          router.reLaunch('/pages/login/index')
+          router.reLaunch('/pages/role/index')
         } catch (error: any) {
           showToast(error.message || '退出失败')
         }
@@ -231,7 +231,7 @@ const handleLogout = async () => {
 // 编辑个人信息
 const handleEditProfile = () => {
   if (!userStore.isLoggedIn) {
-    router.navigate('/pages/login/index')
+    router.navigate('/pages/role/index')
     return
   }
   router.navigate('/pages-sub/user/profile')
@@ -272,7 +272,7 @@ onMounted(() => {
     getUserData()
   } else {
     // 未登录跳转到登录页
-    router.navigate('/pages/login/index')
+    router.navigate('/pages/role/index')
   }
 })
 </script>

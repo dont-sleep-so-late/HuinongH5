@@ -3,11 +3,13 @@ import { showToast } from '@/utils/toast'
 
 // 需要登录的页面
 const loginPages = [
+  '/pages/index/index',
   '/pages/user/index',
   '/pages/cart/index',
   '/pages/order/index',
   '/pages-sub/goods/publish',
   '/pages-sub/farm/index',
+  '/pages-sub/order/list',
 ]
 
 // 需要实名认证的页面
@@ -31,7 +33,7 @@ export const routerGuard = async (options: any) => {
   // 检查是否需要登录
   if (loginPages.some((page) => fullPath.startsWith(page)) && !userStore.isLoggedIn) {
     uni.navigateTo({
-      url: '/pages/login/index?redirect=' + encodeURIComponent(fullPath),
+      url: '/pages/role/index?redirect=' + encodeURIComponent(fullPath),
     })
     return false
   }

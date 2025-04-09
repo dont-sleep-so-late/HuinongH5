@@ -53,8 +53,8 @@ const buyerTabs = [
 // 卖家菜单
 const sellerTabs = [
   {
-    pagePath: '/pages/index/index',
-    text: '商城',
+    pagePath: '/pages-sub/order/list',
+    text: '订单',
     icon: 'home',
     selectedIcon: 'home-fill',
   },

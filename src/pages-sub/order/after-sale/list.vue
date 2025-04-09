@@ -51,7 +51,7 @@
         </view>
       </template>
       <template v-else>
-        <wd-empty description="暂无售后记录" />
+        <wd-status-tip type="search" tip="暂无售后记录" />
       </template>
     </z-paging>
   </view>

@@ -309,6 +309,12 @@ export default defineUniPages({
           },
         },
         {
+          path: 'result',
+          style: {
+            navigationBarTitleText: '支付结果',
+          },
+        },
+        {
           path: 'review',
           style: {
             navigationBarTitleText: '订单评价',

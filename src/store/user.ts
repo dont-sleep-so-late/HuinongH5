@@ -45,7 +45,7 @@ export const useUserStore = defineStore('user', {
 
       // 跳转到登录页
       uni.reLaunch({
-        url: '/pages/login/index',
+        url: '/pages/role/index',
       })
     },
   },
