@@ -64,8 +64,8 @@ export const sellerTabBar: TabBar = {
   backgroundColor: '#f8f8f8',
   list: [
     {
-      pagePath: 'pages/index/index',
-      text: '商城',
+      pagePath: 'pages/order/index',
+      text: '订单',
       iconPath: 'static/tabbar/home.png',
       selectedIconPath: 'static/tabbar/homeHL.png',
     },

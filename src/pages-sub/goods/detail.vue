@@ -79,6 +79,10 @@
             {{ isFavorite ? '已关注' : '关注' }}
           </text>
         </view>
+        <view class="action-item" @click="handleContactSeller">
+          <wd-icon name="chat" size="24" />
+          <text>联系卖家</text>
+        </view>
       </view>
       <view class="right-actions">
         <wd-button type="primary" @click="handleAddToCart">加入购物车</wd-button>
@@ -237,6 +241,12 @@ const goToCart = () => {
   })
 }
 
+// 联系卖家
+const handleContactSeller = () => {
+  console.log('联系卖家')
+  router.navigate('/pages-sub/chat/detail')
+}
+
 // 页面加载
 onMounted(() => {
   const pages = getCurrentPages()
@@ -393,7 +403,7 @@ onMounted(() => {
     display: flex;
 
     .wd-button {
-      width: 200rpx;
+      width: 100rpx;
       margin-left: 20rpx;
     }
   }

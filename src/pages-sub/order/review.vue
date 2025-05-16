@@ -2,10 +2,10 @@
   <view class="review-page">
     <!-- 商品信息 -->
     <view class="goods-section">
-      <view class="shop-info">
+      <!-- <view class="shop-info">
         <image :src="shopInfo.avatar" mode="aspectFill" class="shop-avatar" />
         <text class="shop-name">{{ shopInfo.name }}</text>
-      </view>
+      </view> -->
       <view class="goods-list">
         <view v-for="goods in goodsList" :key="goods.id" class="goods-item">
           <image :src="goods.image" mode="aspectFill" class="goods-image" />
@@ -84,6 +84,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
+import { getOrderDetail, type OrderDetail, type OrderStatus } from '@/api/order'
 
 const router = useRouter()
 const loading = ref(false)
@@ -96,14 +97,7 @@ const shopInfo = ref({
 })
 
 // 商品列表
-const goodsList = ref([
-  {
-    id: 1,
-    name: '有机大米',
-    spec: '5kg装',
-    image: '/static/goods/rice.jpg',
-  },
-])
+const goodsList = ref<any>(null)
 
 // 表单数据
 const form = reactive({
@@ -185,8 +179,10 @@ const handleSubmit = async () => {
 const getOrderInfo = async (id: string) => {
   try {
     // TODO: 调用获取订单信息接口
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    const res = await getOrderDetail(Number(id))
     // 模拟数据已在 shopInfo 和 goodsList 中
+    goodsList.value = res.data
+    console.log('goodsList.value', goodsList.value)
   } catch (error) {
     showToast('获取订单信息失败')
   }
@@ -196,9 +192,9 @@ onMounted(() => {
   // 获取页面参数
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1] as any
-  const { id } = currentPage?.options || {}
-  if (id) {
-    getOrderInfo(id)
+  const { orderId } = router.query()
+  if (orderId) {
+    getOrderInfo(orderId)
   }
 })
 </script>

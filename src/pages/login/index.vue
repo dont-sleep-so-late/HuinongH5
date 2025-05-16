@@ -104,7 +104,7 @@
     </view>
 
     <!-- 其他登录方式 -->
-    <view class="other-login">
+    <!-- <view class="other-login">
       <view class="divider">
         <text class="line"></text>
         <text class="text">其他登录方式</text>
@@ -120,7 +120,7 @@
           <text class="text">支付宝</text>
         </view>
       </view>
-    </view>
+    </view> -->
   </view>
 </template>
 

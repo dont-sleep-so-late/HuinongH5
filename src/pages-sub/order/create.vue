@@ -110,7 +110,7 @@ import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
 import { createBuyNowOrder, createCartOrder } from '@/api/order'
 import { getAddressList } from '@/api/address'
-import { createPayOrder, getPayResult, type PaymentMethod } from '@/api/pay'
+import { createPayOrder, getPayResult, paySuccess, type PaymentMethod } from '@/api/pay'
 import type { ApiResponse } from '@/types/api'
 import type { CreateOrderResponse } from '@/api/order'
 
@@ -297,11 +297,6 @@ const selectAddress = () => {
   router.navigate('/pages-sub/user/address')
 }
 
-// 选择优惠券
-const selectCoupon = (shop: any) => {
-  router.navigate(`/pages-sub/shop/coupons?id=${shop.id}`)
-}
-
 // 轮询查询支付结果
 const startPollingPayResult = (orderId: string) => {
   const maxAttempts = 60 // 最多轮询60次，即10分钟
@@ -315,8 +310,10 @@ const startPollingPayResult = (orderId: string) => {
         if (result.status === 'PAID') {
           // 支付成功
           showToast('支付成功')
-          // 跳转到订单详情页
-          router.redirect(`/pages-sub/order/detail?orderId=${orderId}`)
+          paySuccess(orderId)
+
+          // 跳转到订单详情页，使用out_trade_no作为orderId参数
+          router.redirect(`/pages-sub/order/detail?orderId=${orderId}`, { replace: true })
           return
         } else if (result.status === 'CLOSED') {
           // 订单关闭
@@ -341,57 +338,20 @@ const startPollingPayResult = (orderId: string) => {
 
 // 处理支付
 const handlePayment = async (orderId: string) => {
-  try {
-    if (!orderId) {
-      showToast('订单不存在')
-      return
-    }
-    // 创建支付订单
-    const res = await createPayOrder(orderId, selectedPayment.value)
-    if (res.code === 200 && res.data) {
-      const payData = res.data
-      if (payData.paymentMethod === 'ALIPAY') {
-        // 使用web-view打开支付宝支付页面
-        const htmlContent = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>支付宝支付</title>
-            </head>
-            <body>
-              ${payData.paymentForm}
-            </body>
-          </html>
-        `
-        // 打开web-view页面
-        uni.navigateTo({
-          url: `/pages-sub/common/web-view?html=${encodeURIComponent(htmlContent)}&title=支付宝支付`,
-        })
-
-        // 启动轮询查询支付结果
-        startPollingPayResult(orderId)
-      } else if (payData.paymentMethod === 'WECHAT') {
-        // 微信支付，调用微信支付SDK
-        uni.requestPayment({
-          provider: 'wxpay',
-          ...JSON.parse(payData.paymentForm),
-          success: () => {
-            showToast('支付成功')
-            // 跳转到订单详情页
-            router.redirect(`/pages-sub/order/detail?orderId=${orderId}`)
-          },
-          fail: () => {
-            showToast('支付失败')
-          },
-        })
-      }
-    } else {
-      showToast('创建支付订单失败')
-    }
-  } catch (error: any) {
-    showToast(error.message || '支付失败')
+  if (!orderId) {
+    showToast('订单不存在')
+    return
+  }
+  // 创建支付订单
+  const res = await createPayOrder(orderId, selectedPayment.value)
+  if (res.code === 200 && res.data) {
+    const PayHtml = res.data
+    document.querySelector('body').innerHTML = PayHtml
+    window.document.forms[0].submit()
+    // 启动轮询查询支付结果
+    router.redirect(`/pages-sub/order/detail?orderId=${orderId}`, { replace: true })
+  } else {
+    showToast('创建支付订单失败')
   }
 }
 

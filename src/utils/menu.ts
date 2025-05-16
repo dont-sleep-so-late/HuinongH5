@@ -39,7 +39,7 @@ export const switchTabBar = (role: 'buyer' | 'seller') => {
 
     // 隐藏多余的菜单项
     for (let i = maxIndex; i < 5; i++) {
-      uni.hideTabBarItem({ index: i })
+      uni.hideTabBar({ index: i })
     }
   }
 }

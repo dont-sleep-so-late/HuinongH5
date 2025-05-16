@@ -1,7 +1,7 @@
 <template>
   <wd-config-provider :themeVars="themeVars">
     <slot />
-    <custom-tab-bar v-if="isTabbarPage" />
+    <!-- <custom-tab-bar style="position: fixed; left: 0; bottom: 0" v-if="isTabbarPage" /> -->
     <wd-toast />
     <wd-message-box />
   </wd-config-provider>
@@ -33,11 +33,12 @@ const tabbarPaths = [
 // 检查当前页面是否应该显示TabBar
 const checkIsTabbarPage = () => {
   const pages = getCurrentPages()
+  console.log('pages:', pages)
   if (pages.length === 0) return
 
   const currentPage = pages[pages.length - 1]
   const path = currentPage?.route
-
+  console.log(isTabbarPage.value)
   // 判断当前页面是否在TabBar页面列表中
   isTabbarPage.value = tabbarPaths.some((item) => item === path)
 }

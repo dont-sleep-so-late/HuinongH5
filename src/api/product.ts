@@ -1,5 +1,5 @@
 import { http } from '@/utils/http'
-import type { ApiResponse, PageResult } from '@/types/api'
+import type { ApiResponse, PageResult, PageResponse } from '@/types/api'
 
 // 商品基础信息
 export interface ProductBase {
@@ -81,17 +81,17 @@ export function getProductDetail(id: number) {
 
 // 获取首页商品列表
 export function getHomeProducts(params: BaseQueryParams) {
-  return http.get<ApiResponse<PageResult<ProductBase>>>('/products/home', { params })
+  return http.get<ApiResponse<PageResponse<ProductBase>>>('/products/home', { params })
 }
 
 // 搜索商品
 export function searchProducts(params: SearchParams) {
-  return http.get<ApiResponse<PageResult<ProductBase>>>('/products/search', { params })
+  return http.get<ApiResponse<PageResponse<ProductBase>>>('/products/search', { params })
 }
 
 // 高级商品列表查询
 export function getProductList(params: AdvancedQueryParams) {
-  return http.get<ApiResponse<PageResult<ProductBase>>>('/products/list', { params })
+  return http.get<ApiResponse<PageResponse<ProductBase>>>('/products/list', { params })
 }
 
 // 获取商品规格列表

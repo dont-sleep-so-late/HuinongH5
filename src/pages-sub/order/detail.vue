@@ -45,7 +45,7 @@
       </view>
       <view class="delivery-info">
         <text>配送方式</text>
-        <text>{{ orderInfo.deliveryType === 'express' ? '快递配送' : '到店自提' }}</text>
+        <text>{{ orderInfo.deliveryType !== 'express' ? '到店自提' : '快递配送' }}</text>
       </view>
       <view class="remark" v-if="orderInfo.remark">
         <text>备注</text>
@@ -206,6 +206,7 @@ const handleCancelOrder = () => {
 const loadOrderDetail = async () => {
   try {
     const { orderId } = router.query()
+    console.log(router.query())
     if (!orderId) {
       showToast('参数错误')
       return
@@ -213,10 +214,69 @@ const loadOrderDetail = async () => {
     const res = await getOrderDetail(Number(orderId))
     if (res.code === 200 && res.data) {
       orderInfo.value = res.data as unknown as OrderDetail
+      // 如果订单状态是待支付，则查询支付结果
+      if (orderInfo.value.status === 'pending') {
+        queryPayResult(String(orderId))
+      }
     }
   } catch (error: any) {
     showToast(error.message || '获取数据失败')
   }
+}
+
+// 查询支付结果
+const queryPayResult = async (orderId: string) => {
+  try {
+    const res = await getPayResult(orderId)
+    if (res.code === 200 && res.data) {
+      // 根据支付状态更新界面
+      switch (res.data) {
+        case 'TRADE_SUCCESS':
+          showToast('支付成功')
+          // 刷新订单详情
+          loadOrderDetail()
+          return 'PAID'
+        case 'TRADE_CLOSED':
+          showToast('订单已关闭')
+          return 'CLOSED'
+        case 'WAIT_BUYER_PAY':
+          showToast('等待支付')
+          return 'UNPAID'
+        default:
+          showToast('支付状态未知')
+          return 'UNKNOWN'
+      }
+    }
+  } catch (error) {
+    console.error('查询支付结果失败：', error)
+    showToast('查询支付结果失败')
+  }
+}
+
+// 轮询查询支付结果
+const startPollingPayResult = (orderId: string) => {
+  const maxAttempts = 60 // 最多轮询60次，即10分钟
+  let attempts = 0
+
+  const poll = async () => {
+    const status = await queryPayResult(orderId)
+    if (status === 'PAID') {
+      // 支付成功，停止轮询
+      return
+    } else if (status === 'CLOSED') {
+      // 订单关闭，停止轮询
+      return
+    }
+
+    // 继续轮询
+    attempts++
+    if (attempts < maxAttempts) {
+      setTimeout(poll, 10000) // 每10秒查询一次
+    }
+  }
+
+  // 开始轮询
+  poll()
 }
 
 // 支付订单
@@ -234,87 +294,19 @@ const payOrder = async () => {
     const res = await createPayOrder(String(orderInfo.value.orderId), paymentMethod)
 
     if (res.code === 200 && res.data) {
-      const payData = res.data
-      if (payData.paymentMethod === 'ALIPAY') {
-        // 使用web-view打开支付宝支付页面
-        const htmlContent = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>支付宝支付</title>
-            </head>
-            <body>
-              ${payData.paymentForm}
-            </body>
-          </html>
-        `
-        // 打开web-view页面
-        uni.navigateTo({
-          url: `/pages-sub/common/web-view?html=${encodeURIComponent(htmlContent)}&title=支付宝支付`,
-        })
-
-        // 启动轮询查询支付结果
-        startPollingPayResult(String(orderInfo.value.orderId))
-      } else if (payData.paymentMethod === 'WECHAT') {
-        // 微信支付，调用微信支付SDK
-        uni.requestPayment({
-          provider: 'wxpay',
-          ...JSON.parse(payData.paymentForm),
-          success: () => {
-            showToast('支付成功')
-            // 刷新订单详情
-            loadOrderDetail()
-          },
-          fail: () => {
-            showToast('支付失败')
-          },
-        })
-      }
+      const payData = res.data.paymentForm
+      // 使用web-view打开支付页面
+      uni.navigateTo({
+        url: `/pages-sub/common/web-view?html=${encodeURIComponent(payData)}&title=支付`,
+      })
+      // 启动轮询查询支付结果
+      startPollingPayResult(String(orderInfo.value.orderId))
     } else {
       showToast('创建支付订单失败')
     }
   } catch (error: any) {
     showToast(error.message || '支付失败')
   }
-}
-
-// 轮询查询支付结果
-const startPollingPayResult = (orderId: string) => {
-  const maxAttempts = 60 // 最多轮询60次，即10分钟
-  let attempts = 0
-
-  const poll = async () => {
-    try {
-      const res = await getPayResult(orderId)
-      if (res.code === 200 && res.data) {
-        const result = res.data
-        if (result.status === 'PAID') {
-          // 支付成功
-          showToast('支付成功')
-          // 刷新订单详情
-          loadOrderDetail()
-          return
-        } else if (result.status === 'CLOSED') {
-          // 订单关闭
-          showToast('订单已关闭')
-          return
-        }
-      }
-
-      // 继续轮询
-      attempts++
-      if (attempts < maxAttempts) {
-        setTimeout(poll, 10000) // 每10秒查询一次
-      }
-    } catch (error) {
-      console.error('查询支付结果失败：', error)
-    }
-  }
-
-  // 开始轮询
-  poll()
 }
 
 // 催发货

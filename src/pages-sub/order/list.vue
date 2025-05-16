@@ -19,7 +19,12 @@
       @refresherrefresh="onRefresh"
     >
       <view class="order-items" v-if="orderList.length > 0">
-        <view v-for="order in orderList" :key="order.id" class="order-item">
+        <view
+          v-for="order in orderList"
+          :key="order.id"
+          class="order-item"
+          @click="viewOrderDetail(order)"
+        >
           <!-- 订单信息 -->
           <view class="order-header">
             <text class="order-no">订单号：{{ order.orderNo }}</text>
@@ -98,7 +103,7 @@ import {
   type OrderListItem,
   type OrderStatus,
 } from '@/api/order'
-import { createPayOrder, getPayResult } from '@/api/pay'
+import { createPayOrder, getPayResult, paySuccess } from '@/api/pay'
 import type { PaymentMethod } from '@/api/pay'
 const router = useRouter()
 
@@ -216,57 +221,36 @@ const handleCancelOrder = async (order: OrderListItem) => {
 
 // 支付订单
 const payOrder = async (order: Order) => {
-  if (!order.paymentMethod) {
-    showToast('请选择支付方式')
-    return
+  const orderId = order.id
+  // 创建支付订单
+  const res = await createPayOrder(orderId, 'ALIPAY')
+  if (res.code === 200 && res.data) {
+    const PayHtml = res.data
+    // 使用web-view打开支付宝支付页面
+    document.querySelector('body').innerHTML = PayHtml
+    window.document.forms[0].submit()
+    // 启动轮询查询支付结果
+    startPollingPayResult(orderId)
+  } else {
+    showToast('创建支付订单失败')
   }
+}
 
-  try {
-    const res = await createPayOrder(order.id.toString(), order.paymentMethod)
-    if (res.code === 200 && res.data) {
-      const payData = res.data
-      if (payData.paymentMethod === 'ALIPAY') {
-        // 使用web-view打开支付宝支付页面
-        const htmlContent = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>支付宝支付</title>
-            </head>
-            <body>
-              ${payData.paymentForm}
-            </body>
-          </html>
-        `
-        // 打开web-view页面
-        uni.navigateTo({
-          url: `/pages-sub/common/web-view?html=${encodeURIComponent(htmlContent)}&title=支付宝支付`,
-        })
+// 处理支付宝回调
+const handleAlipayCallback = () => {
+  const url = window.location.href
+  const params = new URLSearchParams(url.split('?')[1])
+  const outTradeNo = params.get('out_trade_no')
+  const tradeNo = params.get('trade_no')
+  const totalAmount = params.get('total_amount')
 
-        // 启动轮询查询支付结果
-        startPollingPayResult(order.id.toString())
-      } else if (payData.paymentMethod === 'WECHAT') {
-        // 微信支付，调用微信支付SDK
-        uni.requestPayment({
-          provider: 'wxpay',
-          ...JSON.parse(payData.paymentForm),
-          success: () => {
-            showToast('支付成功')
-            // 刷新订单列表
-            loadOrders()
-          },
-          fail: () => {
-            showToast('支付失败')
-          },
-        })
-      }
-    } else {
-      showToast(res.message || '支付失败')
-    }
-  } catch (error: any) {
-    showToast(error.message || '支付失败')
+  if (outTradeNo && tradeNo) {
+    // 支付成功，跳转到订单详情页
+    router.navigate(`/pages-sub/order/detail?id=${outTradeNo}`)
+    // 刷新订单列表
+    page.value = 1
+    orderList.value = []
+    loadOrders()
   }
 }
 
@@ -283,6 +267,8 @@ const startPollingPayResult = (orderId: string) => {
         if (result.status === 'PAID') {
           // 支付成功
           showToast('支付成功')
+          // 跳转到订单详情页
+          paySuccess(orderId)
           // 刷新订单列表
           loadOrders()
           return
@@ -309,7 +295,7 @@ const startPollingPayResult = (orderId: string) => {
 
 // 查看订单详情
 const viewOrderDetail = (order: OrderListItem) => {
-  router.navigate(`/pages-sub/order/detail?id=${order.id}`)
+  router.navigate(`/pages-sub/order/detail?orderId=${order.id}`)
 }
 
 // 催发货
@@ -388,7 +374,14 @@ onMounted(() => {
   if (status) {
     activeTab.value = status as OrderStatus | 'all'
   }
-  loadOrders()
+
+  // 检查是否有支付宝回调
+  const url = window.location.href
+  if (url.includes('alipay.trade.wap.pay.return')) {
+    handleAlipayCallback()
+  } else {
+    loadOrders()
+  }
 })
 </script>
 

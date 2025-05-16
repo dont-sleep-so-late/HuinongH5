@@ -43,11 +43,16 @@ export interface ApiResponse<T = any> {
 
 // 分页响应格式
 export interface PageResponse<T = any> {
-  list: T[]
+  records: T[]
   total: number
-  pageSize: number
-  pageNum: number
+  size: number
+  current: number
   pages: number
+  orders: any[]
+  optimizeCountSql: boolean
+  searchCount: boolean
+  maxLimit: number | null
+  countId: string | null
 }
 
 // 订单卡片类型

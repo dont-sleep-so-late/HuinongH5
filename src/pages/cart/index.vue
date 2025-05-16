@@ -285,7 +285,8 @@ const goShopping = () => {
 }
 
 // 页面加载时获取购物车数据
-onMounted(() => {
+
+onShow(() => {
   loadCartList()
 })
 </script>

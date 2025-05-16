@@ -83,12 +83,14 @@ const safeAreaInsetBottom = ref('0px')
 
 // 根据用户角色显示对应的菜单
 const currentTabs = computed(() => {
+  console.log('currentTabs:', currentTabs.value)
   const userRole = uni.getStorageSync('userRole')
   return userRole === 'seller' ? sellerTabs : buyerTabs
 })
 
 // 切换标签页
 const switchTab = (path: string, index: number) => {
+  console.log(path, index)
   if (selected.value === index) return
   selected.value = index
   uni.switchTab({ url: path })

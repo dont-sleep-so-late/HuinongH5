@@ -2,18 +2,20 @@
   <view class="search-page">
     <!-- 搜索栏 -->
     <view class="search-bar">
-      <wd-input
-        v-model="searchKeyword"
-        placeholder="搜索商品"
-        prefix-icon="search"
-        clearable
-        :autofocus="true"
-        @enter="handleSearch"
-      >
-        <template #suffix>
-          <text class="cancel-btn" @click="handleCancel">取消</text>
-        </template>
-      </wd-input>
+      <view class="search-input-wrap">
+        <input
+          v-model="searchKeyword"
+          class="search-input"
+          type="text"
+          placeholder="搜索商品"
+          confirm-type="search"
+          @confirm="handleSearch"
+          @input="onInput"
+        />
+        <text class="search-icon">🔍</text>
+        <text v-if="searchKeyword" class="clear-icon" @tap="clearKeyword">×</text>
+      </view>
+      <text class="cancel-btn" @tap="handleCancel">取消</text>
     </view>
 
     <!-- 搜索历史和热门搜索 -->
@@ -22,10 +24,10 @@
       <view class="section" v-if="searchHistory.length > 0">
         <view class="section-header">
           <text class="title">搜索历史</text>
-          <text class="clear-btn" @click="clearHistory">清空</text>
+          <text class="clear-btn" @tap="clearHistory">清空</text>
         </view>
         <view class="tag-list">
-          <text v-for="item in searchHistory" :key="item" class="tag" @click="searchKeyword = item">
+          <text v-for="item in searchHistory" :key="item" class="tag" @tap="onTagClick(item)">
             {{ item }}
           </text>
         </view>
@@ -37,7 +39,7 @@
           <text class="title">热门搜索</text>
         </view>
         <view class="tag-list">
-          <text v-for="item in hotSearches" :key="item" class="tag" @click="searchKeyword = item">
+          <text v-for="item in hotSearches" :key="item" class="tag" @tap="onTagClick(item)">
             {{ item }}
           </text>
         </view>
@@ -59,15 +61,15 @@
           class="goods-item"
           v-for="item in searchResults"
           :key="item.id"
-          @click="navigateToDetail(item)"
+          @tap="navigateToDetail(item)"
         >
-          <image :src="item.image" mode="aspectFill" class="goods-image" />
+          <image :src="item.mainImage" mode="aspectFill" class="goods-image" />
           <view class="goods-info">
             <text class="goods-name">{{ item.name }}</text>
             <text class="goods-desc">{{ item.description }}</text>
             <view class="goods-meta">
               <text class="goods-price">¥{{ item.price }}</text>
-              <text class="goods-sales">已售{{ item.sales }}件</text>
+              <text class="goods-sales">已售{{ item.salesVolume }}件</text>
             </view>
           </view>
         </view>
@@ -75,13 +77,11 @@
 
       <!-- 加载更多 -->
       <view class="loading" v-if="isLoading">
-        <wd-loading size="20" />
         <text>加载中...</text>
       </view>
 
       <!-- 无数据提示 -->
       <view class="empty" v-if="searchResults.length === 0 && !isLoading">
-        <image src="" mode="aspectFit" class="empty-icon" />
         <text>暂无相关商品</text>
       </view>
     </scroll-view>
@@ -89,13 +89,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import { useRouter } from '@/hooks/router'
-import { showToast } from '@/utils/toast'
+import { ref, watch, onMounted } from 'vue'
 import { searchProducts } from '@/api/product'
 import type { ProductBase, SearchParams } from '@/api/product'
-
-const router = useRouter()
 
 // 搜索关键词
 const searchKeyword = ref('')
@@ -154,10 +150,30 @@ const clearHistory = () => {
   })
 }
 
+// 清空搜索关键词
+const clearKeyword = () => {
+  searchKeyword.value = ''
+  showResults.value = false
+}
+
+// 处理输入
+const onInput = (e: any) => {
+  searchKeyword.value = e.detail.value
+}
+
+// 处理标签点击
+const onTagClick = (keyword: string) => {
+  searchKeyword.value = keyword
+  handleSearch()
+}
+
 // 处理搜索
 const handleSearch = async () => {
   if (!searchKeyword.value.trim()) {
-    showToast('请输入搜索关键词')
+    uni.showToast({
+      title: '请输入搜索关键词',
+      icon: 'none',
+    })
     return
   }
 
@@ -190,14 +206,17 @@ const loadSearchResults = async () => {
       }
 
       // 更新页码
-      if (res.data.current >= Math.ceil(res.data.total / res.data.size)) {
+      if (res.data.current >= res.data.pages) {
         isLoading.value = false
       } else {
         page.value++
       }
     }
   } catch (error: any) {
-    showToast(error.message || '加载失败')
+    uni.showToast({
+      title: error.message || '加载失败',
+      icon: 'none',
+    })
   } finally {
     isLoading.value = false
     isRefreshing.value = false
@@ -210,14 +229,14 @@ const handleCancel = () => {
     showResults.value = false
     searchKeyword.value = ''
   } else {
-    router.back()
+    uni.navigateBack()
   }
 }
 
 // 跳转到商品详情
 const navigateToDetail = (item: ProductBase) => {
-  router.navigate('/pages-sub/goods/detail', {
-    id: item.id,
+  uni.navigateTo({
+    url: `/pages-sub/goods/detail?id=${item.id}`,
   })
 }
 
@@ -245,165 +264,173 @@ watch(searchKeyword, (newVal) => {
 // 页面加载
 onMounted(() => {
   loadSearchHistory()
-
-  // 获取页面参数
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const { keyword } = currentPage?.options || {}
-  if (keyword) {
-    searchKeyword.value = decodeURIComponent(keyword)
-    handleSearch()
-  }
 })
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .search-page {
   min-height: 100vh;
-  background-color: #f8f8f8;
+  background-color: #f5f5f5;
 }
 
 .search-bar {
   position: sticky;
   top: 0;
   z-index: 100;
+  display: flex;
+  align-items: center;
   padding: 20rpx;
   background-color: #fff;
+}
 
-  .cancel-btn {
-    padding-left: 20rpx;
-    font-size: 28rpx;
-    color: #666;
-  }
+.search-input-wrap {
+  position: relative;
+  flex: 1;
+  margin-right: 20rpx;
+}
+
+.search-input {
+  width: 100%;
+  height: 72rpx;
+  padding: 0 60rpx;
+  font-size: 28rpx;
+  background-color: #f5f5f5;
+  border-radius: 36rpx;
+}
+
+.search-icon {
+  position: absolute;
+  top: 50%;
+  left: 20rpx;
+  font-size: 32rpx;
+  color: #999;
+  transform: translateY(-50%);
+}
+
+.clear-icon {
+  position: absolute;
+  top: 50%;
+  right: 20rpx;
+  padding: 10rpx;
+  font-size: 40rpx;
+  color: #999;
+  transform: translateY(-50%);
+}
+
+.cancel-btn {
+  padding: 10rpx;
+  font-size: 28rpx;
+  color: #666;
 }
 
 .search-content {
   padding: 20rpx;
+}
 
-  .section {
-    margin-bottom: 40rpx;
+.section {
+  padding: 20rpx;
+  margin-bottom: 30rpx;
+  background-color: #fff;
+  border-radius: 12rpx;
+}
 
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20rpx;
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
 
-      .title {
-        font-size: 30rpx;
-        font-weight: bold;
-        color: #333;
-      }
+.title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
 
-      .clear-btn {
-        font-size: 26rpx;
-        color: #999;
-      }
-    }
+.clear-btn {
+  font-size: 24rpx;
+  color: #999;
+}
 
-    .tag-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20rpx;
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
 
-      .tag {
-        padding: 12rpx 24rpx;
-        font-size: 26rpx;
-        color: #666;
-        background-color: #f5f5f5;
-        border-radius: 100rpx;
-      }
-    }
-  }
+.tag {
+  padding: 10rpx 20rpx;
+  font-size: 24rpx;
+  color: #666;
+  background-color: #f5f5f5;
+  border-radius: 6rpx;
 }
 
 .search-results {
-  height: calc(100vh - 120rpx);
+  height: calc(100vh - 112rpx);
+}
 
-  .goods-list {
-    padding: 20rpx;
+.goods-list {
+  padding: 20rpx;
+}
 
-    .goods-item {
-      display: flex;
-      padding: 20rpx;
-      margin-bottom: 20rpx;
-      background-color: #fff;
-      border-radius: 12rpx;
+.goods-item {
+  margin-bottom: 20rpx;
+  overflow: hidden;
+  background-color: #fff;
+  border-radius: 12rpx;
+}
 
-      .goods-image {
-        width: 200rpx;
-        height: 200rpx;
-        margin-right: 20rpx;
-        border-radius: 8rpx;
-      }
+.goods-image {
+  width: 100%;
+  height: 400rpx;
+}
 
-      .goods-info {
-        display: flex;
-        flex: 1;
-        flex-direction: column;
+.goods-info {
+  padding: 20rpx;
+}
 
-        .goods-name {
-          margin-bottom: 12rpx;
-          font-size: 28rpx;
-          font-weight: bold;
-          color: #333;
-        }
+.goods-name {
+  margin-bottom: 10rpx;
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
 
-        .goods-desc {
-          margin-bottom: 20rpx;
-          font-size: 24rpx;
-          color: #999;
-        }
+.goods-desc {
+  margin-bottom: 10rpx;
+  font-size: 24rpx;
+  color: #999;
+}
 
-        .goods-meta {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+.goods-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 
-          .goods-price {
-            font-size: 32rpx;
-            font-weight: bold;
-            color: #ff6b6b;
-          }
+.goods-price {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #ff4d4f;
+}
 
-          .goods-sales {
-            font-size: 24rpx;
-            color: #999;
-          }
-        }
-      }
-    }
-  }
+.goods-sales {
+  font-size: 24rpx;
+  color: #999;
 }
 
 .loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 20rpx;
   font-size: 24rpx;
   color: #999;
-
-  .wd-loading {
-    margin-right: 10rpx;
-  }
+  text-align: center;
 }
 
 .empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   padding: 100rpx 0;
-
-  .empty-icon {
-    width: 200rpx;
-    height: 200rpx;
-    margin-bottom: 20rpx;
-  }
-
-  text {
-    font-size: 28rpx;
-    color: #999;
-  }
+  font-size: 28rpx;
+  color: #999;
+  text-align: center;
 }
 </style>

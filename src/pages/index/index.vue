@@ -43,7 +43,7 @@
     </swiper>
 
     <!-- 功能导航 -->
-    <view class="nav-section">
+    <!-- <view class="nav-section">
       <view class="nav-grid">
         <view class="nav-item" @click="navigateToPrice">
           <view class="icon-wrapper price">
@@ -74,7 +74,7 @@
           <text class="sub-text">一键管理</text>
         </view>
       </view>
-    </view>
+    </view> -->
 
     <!-- 商品列表 -->
     <view class="goods-section">
@@ -134,7 +134,7 @@
                   <text>{{ item.region }}</text>
                 </view>
                 <view class="meta-item">
-                  <text>{{ item.unit }}/{{ item.weight }}{{ item.unit }}</text>
+                  <text>{{ item.price }}元/{{ item.unit }}</text>
                 </view>
               </view>
               <view class="price-action">
@@ -305,7 +305,7 @@ const handleSortPrice = () => {
 // 页面跳转方法
 const navigateToSearch = () => {
   uni.navigateTo({
-    url: '/pages-sub/search/index',
+    url: '/pages-sub/goods/search',
   })
 }
 

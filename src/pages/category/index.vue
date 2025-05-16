@@ -59,7 +59,7 @@
             <image class="goods-image" :src="item.mainImage" mode="aspectFill" />
             <view class="goods-info">
               <text class="goods-name">{{ item.name }}</text>
-              <text class="goods-desc">{{ item.desc }}</text>
+              <text class="goods-desc">{{ item.description }}</text>
               <view class="goods-meta">
                 <text class="goods-price">¥{{ item.price }}</text>
                 <text class="goods-sales">已售{{ item.salesVolume }}件</text>
@@ -83,7 +83,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
 import { getCategoryTree, getCategoryProducts } from '@/api/category'
-import type { Category, Product, ProductQueryParams } from '@/api/category'
+import type { Category, ProductBase, ProductQueryParams } from '@/api/category'
 
 const router = useRouter()
 
@@ -102,7 +102,7 @@ const activeCategory = ref(0)
 const categories = ref<Category[]>([])
 
 // 商品列表
-const goodsList = ref<Product[]>([])
+const goodsList = ref<ProductBase[]>([])
 
 // 计算当前分类
 const currentCategory = computed(() => {
@@ -159,8 +159,7 @@ const loadGoods = async () => {
 
     const res = await getCategoryProducts(params)
     if (res.code === 200 && res.data) {
-      const { records, total, size, current } = res.data
-
+      const { records, current, pages } = res.data
       if (page.value === 1) {
         goodsList.value = records
       } else {
@@ -168,7 +167,7 @@ const loadGoods = async () => {
       }
 
       // 如果没有更多数据了，禁止继续加载
-      if (current >= total / size) {
+      if (current >= pages) {
         isLoading.value = false
       } else {
         page.value++
@@ -194,7 +193,7 @@ const handleSearch = () => {
 }
 
 // 跳转到商品详情
-const navigateToDetail = (item: Product) => {
+const navigateToDetail = (item: ProductBase) => {
   router.navigate('/pages-sub/goods/detail', {
     id: item.id,
   })

@@ -47,7 +47,7 @@ const handleError = (error: any) => {
   hideLoading()
 
   // 处理错误信息
-  const message = error.errMsg || '请求失败'
+  const message = error.errMsg || error.message || '请求失败'
   uni.showToast({
     title: message,
     icon: 'none',

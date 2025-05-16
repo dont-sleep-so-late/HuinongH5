@@ -37,7 +37,7 @@ const http = {
             if (interceptedRes) {
               resolve(interceptedRes.data)
             } else {
-              reject(new Error('请求失败'))
+              reject(new Error(res.data.message || '请求失败'))
             }
           } else {
             // 非200状态码，交给响应拦截器处理

@@ -39,6 +39,11 @@ export const queryPayOrder = (
 }
 
 // 查询支付结果
-export const getPayResult = (orderId: string): Promise<ApiResponse<PayResult>> => {
-  return http.get('/pay/result', { params: { orderId } })
+export const getPayResult = (orderId: string): Promise<ApiResponse<string>> => {
+  return http.get('/pay/alipay/query', { params: { orderId } })
+}
+
+// 支付成功
+export const paySuccess = (orderId: string): Promise<ApiResponse<PayResult>> => {
+  return http.post('/pay/alipay/return', { orderId })
 }

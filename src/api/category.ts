@@ -1,5 +1,5 @@
 import { http } from '@/utils/http'
-import type { ApiResponse, PageResult } from '@/types/api'
+import type { ApiResponse, PageResult, PageResponse } from '@/types/api'
 
 // 分类类型定义
 export interface Category {
@@ -37,6 +37,30 @@ export interface ProductQueryParams {
   region?: string
 }
 
+// 商品基础信息
+export interface ProductBase {
+  id: number
+  name: string
+  description: string
+  mainImage: string
+  detailImages: string[]
+  categoryId: number
+  categoryName: string
+  price: number
+  stock: number
+  status: number
+  salesVolume: number
+  region: string
+  unit: string
+  weight: number
+  createdTime: string
+  updatedTime: string
+  sellerId: number
+  sellerName: string
+  auditStatus: number
+  auditRemark: string | null
+}
+
 // 获取分类树
 export function getCategoryTree() {
   return http.get<ApiResponse<Category[]>>('/categories/tree')
@@ -44,7 +68,7 @@ export function getCategoryTree() {
 
 // 获取分类商品列表
 export function getCategoryProducts(params: ProductQueryParams) {
-  return http.get<ApiResponse<PageResult<Product>>>('/products/category', { params })
+  return http.get<ApiResponse<PageResponse<ProductBase>>>('/products/category', { params })
 }
 
 // 搜索商品

@@ -58,8 +58,8 @@ import { ref, reactive } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/utils/toast'
-import { sendEmailCode } from '@/services/auth'
-import { updateUserInfo } from '@/services/user'
+import { sendEmailCode } from '@/api/auth'
+import { updateUserInfo } from '@/api/user'
 
 const router = useRouter()
 const userStore = useUserStore()

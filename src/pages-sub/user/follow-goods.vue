@@ -143,7 +143,7 @@ onBeforeUnmount(() => {
 
 .goods-items {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(1, 1fr);
   gap: 20rpx;
 
   .goods-item {
@@ -152,7 +152,7 @@ onBeforeUnmount(() => {
     border-radius: 16rpx;
 
     .goods-image {
-      width: 100%;
+      width: 40%;
       height: 345rpx;
     }
 
