@@ -4,6 +4,11 @@ interface ToastOptions {
   mask?: boolean
 }
 
+interface ModalResult {
+  confirm: boolean
+  cancel: boolean
+}
+
 /**
  * 显示提示
  */
@@ -25,18 +30,22 @@ export function showToast(title: string, options: ToastOptions = {}) {
 /**
  * 显示确认框
  */
-export function showModal(options: UniApp.ShowModalOptions) {
-  return new Promise<void>((resolve, reject) => {
+export function showModal(options: UniApp.ShowModalOptions): Promise<ModalResult> {
+  return new Promise((resolve) => {
     uni.showModal({
       ...options,
       success: (res) => {
-        if (res.confirm) {
-          resolve()
-        } else {
-          reject(new Error('用户取消'))
-        }
+        resolve({
+          confirm: res.confirm,
+          cancel: res.cancel,
+        })
       },
-      fail: reject,
+      fail: () => {
+        resolve({
+          confirm: false,
+          cancel: true,
+        })
+      },
     })
   })
 }

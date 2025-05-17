@@ -3,13 +3,22 @@
     <!-- 商品信息 -->
     <view class="card">
       <view class="card-title">商品信息</view>
-      <view class="goods-info">
-        <image class="goods-image" :src="detail.goodsImage" mode="aspectFill" />
+      <view class="goods-info" v-for="item in detail.orderItems" :key="item.productId">
+        <image class="goods-image" :src="item.productImage" mode="aspectFill" />
         <view class="goods-detail">
-          <text class="goods-name">{{ detail.goodsName }}</text>
-          <text class="goods-spec">{{ detail.goodsSpec }}</text>
-          <text class="goods-price">¥{{ detail.goodsPrice }}</text>
+          <text class="goods-name">{{ item.productName }}</text>
+          <text class="goods-spec" v-if="item.specName || item.specValue">
+            {{ item.specName }} {{ item.specValue }}
+          </text>
+          <view class="goods-price-info">
+            <text class="goods-price">¥{{ item.price }}</text>
+            <text class="goods-quantity">x{{ item.quantity }}</text>
+          </view>
         </view>
+      </view>
+      <view class="order-amount">
+        <text>订单实付金额：</text>
+        <text class="amount">¥{{ detail.payableAmount }}</text>
       </view>
     </view>
 
@@ -17,61 +26,61 @@
     <view class="card">
       <view class="card-title">申请信息</view>
       <view class="form">
-        <wd-cell-group>
-          <wd-cell title="售后类型" required>
-            <template #right>
-              <wd-radio-group v-model="form.type">
-                <wd-radio value="refund">仅退款</wd-radio>
-                <wd-radio value="return">退货退款</wd-radio>
-              </wd-radio-group>
-            </template>
-          </wd-cell>
-          <wd-cell title="申请原因" required is-link @click="showReasonPicker = true">
-            <template #right>
-              <text class="placeholder" v-if="!form.reason">请选择</text>
-              <text v-else>{{ form.reason }}</text>
-            </template>
-          </wd-cell>
-          <wd-cell title="退款金额" required>
-            <template #right>
-              <wd-input
-                v-model="form.refundAmount"
-                type="number"
-                placeholder="请输入退款金额"
-                :max="detail.goodsPrice"
-              />
-            </template>
-          </wd-cell>
-          <wd-cell title="申请说明">
-            <template #right>
-              <wd-textarea
-                v-model="form.description"
-                placeholder="请输入申请说明（选填）"
-                :maxlength="200"
-                show-count
-              />
-            </template>
-          </wd-cell>
-          <wd-cell title="凭证图片">
-            <template #right>
-              <view class="upload-list">
-                <wd-upload-image
-                  v-for="(image, index) in form.images"
-                  :key="index"
-                  v-model="form.images[index]"
-                  class="upload-item"
-                  @delete="handleDeleteImage(index)"
-                />
-                <wd-upload-image
-                  v-if="form.images.length < 6"
-                  v-model="newImage"
-                  class="upload-item"
-                  @change="handleImageChange"
-                />
-              </view>
-            </template>
-          </wd-cell>
-        </wd-cell-group>
+        <view class="form-item">
+          <text class="label required">申请原因</text>
+          <view class="input-wrapper" @click="showReasonPicker = true">
+            <text class="value" :class="{ placeholder: !form.reason }">
+              {{ form.reason || '请选择申请原因' }}
+            </text>
+            <text class="iconfont icon-arrow-right"></text>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <text class="label required">退款金额</text>
+          <view class="input-wrapper">
+            <input
+              type="digit"
+              v-model="form.refundAmount"
+              class="input"
+              placeholder="请输入退款金额"
+              :max="detail.payableAmount"
+            />
+            <text class="unit">元</text>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <text class="label">申请说明</text>
+          <view class="textarea-wrapper">
+            <textarea
+              v-model="form.description"
+              class="textarea"
+              placeholder="请输入申请说明（选填）"
+              :maxlength="200"
+            />
+            <text class="word-count">{{ (form.description || '').length }}/200</text>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <text class="label">凭证图片</text>
+          <view class="upload-list">
+            <view v-for="(image, index) in form.images" :key="index" class="upload-item">
+              <image :src="image" mode="aspectFill" class="preview-image" />
+              <text class="delete-btn" @click="handleDeleteImage(index)">×</text>
+            </view>
+            <view
+              v-if="(form.images || []).length < 6"
+              class="upload-item upload-btn"
+              @click="chooseImage"
+            >
+              <text class="iconfont icon-camera"></text>
+              <text class="upload-text">上传图片</text>
+            </view>
+          </view>
+          <text class="upload-tip">最多上传6张图片</text>
+        </view>
       </view>
     </view>
 
@@ -96,21 +105,21 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
-import { getOrderDetail, applyAfterSale } from '@/api/order'
+import { getOrderDetail } from '@/api/order'
+import { applyRefund, type RefundApplyRequest } from '@/api/refund'
 
 const router = useRouter()
 const detail = ref<any>({})
 const submitting = ref(false)
 const showReasonPicker = ref(false)
-const newImage = ref('')
 
 // 表单数据
-const form = reactive({
-  type: 'refund' as 'refund' | 'return',
+const form = reactive<RefundApplyRequest>({
+  orderId: 0,
+  refundAmount: 0,
   reason: '',
-  refundAmount: '',
   description: '',
-  images: [] as string[],
+  images: [],
 })
 
 // 原因选项
@@ -133,10 +142,11 @@ const getDetail = async () => {
       return
     }
     const res = await getOrderDetail(Number(orderId))
-    if (res.code === 200) {
+    if (res.code === 200 && res.data) {
       detail.value = res.data
       // 设置默认退款金额
-      form.refundAmount = detail.value.goodsPrice
+      form.orderId = Number(orderId)
+      form.refundAmount = detail.value.payableAmount
     }
   } catch (error: any) {
     showToast(error.message || '获取数据失败')
@@ -145,31 +155,40 @@ const getDetail = async () => {
 
 // 选择原因
 const handleSelectReason = (item: any) => {
-  form.reason = item.value
+  console.log('选择原因：', item)
+  form.reason = item.item.name // 修改这里，使用 item.name 而不是 item.value
+  showReasonPicker.value = false
 }
 
-// 处理图片上传成功
-const handleImageChange = (url: string) => {
-  form.images.push(url)
-  newImage.value = ''
+// 选择图片
+const chooseImage = () => {
+  uni.chooseImage({
+    count: 6 - (form.images?.length || 0),
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: (res) => {
+      // 这里应该先上传图片到服务器，获取URL后再添加到form.images
+      // 暂时直接使用本地临时路径
+      if (!form.images) {
+        form.images = []
+      }
+      form.images.push(...res.tempFilePaths)
+    },
+    fail: () => {
+      showToast('选择图片失败')
+    },
+  })
 }
 
 // 删除图片
 const handleDeleteImage = (index: number) => {
-  form.images.splice(index, 1)
-}
-
-// 图片超出大小限制
-const handleOversize = () => {
-  showToast('图片大小不能超过5MB')
+  if (form.images) {
+    form.images.splice(index, 1)
+  }
 }
 
 // 表单验证
 const validate = () => {
-  if (!form.type) {
-    showToast('请选择售后类型')
-    return false
-  }
   if (!form.reason) {
     showToast('请选择申请原因')
     return false
@@ -179,8 +198,8 @@ const validate = () => {
     return false
   }
   const amount = Number(form.refundAmount)
-  if (isNaN(amount) || amount <= 0 || amount > detail.value.goodsPrice) {
-    showToast('退款金额不正确')
+  if (isNaN(amount) || amount <= 0 || amount > detail.value.payableAmount) {
+    showToast('退款金额不能超过实付金额')
     return false
   }
   return true
@@ -191,8 +210,7 @@ const submit = async () => {
   if (!validate()) return
   try {
     submitting.value = true
-    const res = await applyAfterSale({
-      orderId: detail.value.id,
+    const res = await applyRefund({
       ...form,
       refundAmount: Number(form.refundAmount),
     })
@@ -235,6 +253,11 @@ onMounted(() => {
     .goods-info {
       display: flex;
       padding: 20rpx 0;
+      border-bottom: 1rpx solid #f5f5f5;
+
+      &:last-child {
+        border-bottom: none;
+      }
 
       .goods-image {
         width: 160rpx;
@@ -260,27 +283,176 @@ onMounted(() => {
           color: #999;
         }
 
-        .goods-price {
-          font-size: 32rpx;
-          font-weight: bold;
-          color: #ff4d4f;
+        .goods-price-info {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+
+          .goods-price {
+            font-size: 32rpx;
+            font-weight: bold;
+            color: #ff4d4f;
+          }
+
+          .goods-quantity {
+            font-size: 24rpx;
+            color: #999;
+          }
         }
       }
     }
 
-    .form {
-      .placeholder {
-        color: #999;
+    .order-amount {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 20rpx 0;
+      font-size: 28rpx;
+      color: #666;
+
+      .amount {
+        margin-left: 10rpx;
+        font-size: 32rpx;
+        font-weight: bold;
+        color: #ff4d4f;
       }
+    }
 
-      .upload-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 20rpx;
+    .form {
+      .form-item {
+        margin-bottom: 30rpx;
 
-        .upload-item {
-          width: 200rpx;
-          height: 200rpx;
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .label {
+          display: block;
+          margin-bottom: 16rpx;
+          font-size: 28rpx;
+          color: #333;
+
+          &.required::before {
+            margin-right: 4rpx;
+            color: #ff4d4f;
+            content: '*';
+          }
+        }
+
+        .input-wrapper {
+          display: flex;
+          align-items: center;
+          padding: 20rpx;
+          background-color: #f8f8f8;
+          border-radius: 8rpx;
+
+          .value {
+            flex: 1;
+            font-size: 28rpx;
+            color: #333;
+
+            &.placeholder {
+              color: #999;
+            }
+          }
+
+          .input {
+            flex: 1;
+            height: 40rpx;
+            font-size: 28rpx;
+            color: #333;
+          }
+
+          .unit {
+            margin-left: 10rpx;
+            font-size: 28rpx;
+            color: #666;
+          }
+
+          .iconfont {
+            font-size: 32rpx;
+            color: #999;
+          }
+        }
+
+        .textarea-wrapper {
+          position: relative;
+          padding: 20rpx;
+          background-color: #f8f8f8;
+          border-radius: 8rpx;
+
+          .textarea {
+            width: 100%;
+            height: 200rpx;
+            font-size: 28rpx;
+            color: #333;
+          }
+
+          .word-count {
+            position: absolute;
+            right: 20rpx;
+            bottom: 20rpx;
+            font-size: 24rpx;
+            color: #999;
+          }
+        }
+
+        .upload-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 20rpx;
+
+          .upload-item {
+            position: relative;
+            width: 200rpx;
+            height: 200rpx;
+            overflow: hidden;
+            background-color: #f8f8f8;
+            border-radius: 8rpx;
+
+            .preview-image {
+              width: 100%;
+              height: 100%;
+            }
+
+            .delete-btn {
+              position: absolute;
+              top: 0;
+              right: 0;
+              width: 40rpx;
+              height: 40rpx;
+              font-size: 32rpx;
+              line-height: 40rpx;
+              color: #fff;
+              text-align: center;
+              background-color: rgba(0, 0, 0, 0.5);
+            }
+
+            &.upload-btn {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              border: 1rpx dashed #ddd;
+
+              .iconfont {
+                font-size: 48rpx;
+                color: #999;
+              }
+
+              .upload-text {
+                margin-top: 10rpx;
+                font-size: 24rpx;
+                color: #999;
+              }
+            }
+          }
+        }
+
+        .upload-tip {
+          margin-top: 16rpx;
+          font-size: 24rpx;
+          color: #999;
         }
       }
     }

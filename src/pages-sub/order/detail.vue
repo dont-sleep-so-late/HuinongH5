@@ -109,9 +109,11 @@
       </template>
       <template v-else-if="orderInfo.status === 'paid'">
         <wd-button size="large" @click="urgeShipment">催发货</wd-button>
+        <wd-button size="large" type="primary" @click="applyRefund">申请退款</wd-button>
       </template>
       <template v-else-if="orderInfo.status === 'shipped'">
         <wd-button size="large" @click="handleConfirmReceipt">确认收货</wd-button>
+        <wd-button size="large" type="primary" @click="applyRefund">申请退款</wd-button>
       </template>
       <template v-else-if="orderInfo.status === 'completed'">
         <wd-button size="large" @click="deleteOrder">删除订单</wd-button>
@@ -152,6 +154,7 @@ const getStatusText = (status: OrderStatus) => {
     shipped: '待收货',
     completed: '已完成',
     cancelled: '已取消',
+    refunded: '已退款',
   }
   return statusMap[status] || '未知状态'
 }
@@ -363,6 +366,12 @@ const deleteOrder = () => {
 const reviewOrder = () => {
   if (!orderInfo.value) return
   router.navigate(`/pages-sub/order/review?id=${orderInfo.value.orderId}`)
+}
+
+// 申请退款
+const applyRefund = () => {
+  if (!orderInfo.value) return
+  router.navigate(`/pages-sub/order/after-sale/apply?orderId=${orderInfo.value.orderId}`)
 }
 
 // 页面加载

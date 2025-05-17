@@ -20,7 +20,7 @@ interface ApplyAfterSaleParams {
 }
 
 // 订单状态
-export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled'
+export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded'
 
 // 订单商品项
 export interface OrderItem {

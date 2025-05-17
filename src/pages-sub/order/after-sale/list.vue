@@ -12,7 +12,7 @@
           class="after-sale-item"
           v-for="item in list"
           :key="item.id"
-          @click="goDetail(item.id)"
+          @click="goDetail(item.orderId)"
         >
           <view class="header">
             <text class="order-no">订单号：{{ item.orderNo }}</text>
@@ -21,28 +21,33 @@
             </text>
           </view>
           <view class="goods-info">
-            <image class="goods-image" :src="item.goodsImage" mode="aspectFill" />
+            <image class="goods-image" :src="item.orderItem.productImage" mode="aspectFill" />
             <view class="goods-detail">
-              <text class="goods-name">{{ item.goodsName }}</text>
-              <text class="goods-spec">{{ item.goodsSpec }}</text>
-              <text class="goods-price">¥{{ item.goodsPrice }}</text>
+              <text class="goods-name">{{ item.orderItem.productName }}</text>
+              <text class="goods-spec" v-if="item.orderItem.specName || item.orderItem.specValue">
+                {{ item.orderItem.specName }} {{ item.orderItem.specValue }}
+              </text>
+              <view class="refund-info">
+                <text class="refund-amount">退款金额：¥{{ item.refundAmount }}</text>
+                <text class="refund-reason">退款原因：{{ item.reason }}</text>
+              </view>
             </view>
           </view>
           <view class="footer">
             <text class="time">申请时间：{{ formatTime(item.createTime) }}</text>
             <view class="actions">
               <wd-button
-                v-if="item.status === 'pending'"
+                v-if="item.status === RefundStatus.PENDING"
                 size="small"
-                @click.stop="cancelAfterSale(item.id)"
+                @click.stop="cancelAfterSale(item.orderId)"
               >
                 取消申请
               </wd-button>
               <wd-button
-                v-if="item.status === 'approved'"
+                v-if="item.status === RefundStatus.APPROVED"
                 type="primary"
                 size="small"
-                @click.stop="goLogistics(item.id)"
+                @click.stop="goLogistics(item.orderId)"
               >
                 查看物流
               </wd-button>
@@ -51,7 +56,7 @@
         </view>
       </template>
       <template v-else>
-        <wd-status-tip type="search" tip="暂无售后记录" />
+        <wd-status-tip type="search" tip="暂无退款记录" />
       </template>
     </z-paging>
   </view>
@@ -62,39 +67,39 @@ import { ref } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast, showModal } from '@/utils/toast'
 import { formatTime } from '@/utils/time'
-import { getAfterSaleList, cancelAfterSale as cancelAfterSaleApi } from '@/api/order'
+import { getRefundList, cancelRefund, type RefundListItem, RefundStatus } from '@/api/refund'
 
 const router = useRouter()
 const paging = ref()
-const activeTab = ref('all')
-const list = ref([])
+const activeTab = ref<RefundStatus | 'all'>('all')
+const list = ref<RefundListItem[]>([])
 
 // 状态选项
 const tabs = [
   { label: '全部', value: 'all' },
-  { label: '处理中', value: 'pending' },
-  { label: '已通过', value: 'approved' },
-  { label: '已拒绝', value: 'rejected' },
+  { label: '处理中', value: RefundStatus.PENDING },
+  { label: '已通过', value: RefundStatus.APPROVED },
+  { label: '已拒绝', value: RefundStatus.REJECTED },
 ]
 
 // 获取状态文本
-const getStatusText = (status: string) => {
-  const statusMap: Record<string, string> = {
-    pending: '处理中',
-    approved: '已通过',
-    rejected: '已拒绝',
-    canceled: '已取消',
+const getStatusText = (status: RefundStatus) => {
+  const statusMap: Record<RefundStatus, string> = {
+    [RefundStatus.PENDING]: '处理中',
+    [RefundStatus.APPROVED]: '已通过',
+    [RefundStatus.REJECTED]: '已拒绝',
+    [RefundStatus.COMPLETED]: '已完成',
   }
   return statusMap[status] || status
 }
 
 // 获取状态颜色
-const getStatusColor = (status: string) => {
-  const colorMap: Record<string, string> = {
-    pending: '#ff9900',
-    approved: '#52c41a',
-    rejected: '#ff4d4f',
-    canceled: '#999999',
+const getStatusColor = (status: RefundStatus) => {
+  const colorMap: Record<RefundStatus, string> = {
+    [RefundStatus.PENDING]: '#ff9900',
+    [RefundStatus.APPROVED]: '#52c41a',
+    [RefundStatus.REJECTED]: '#ff4d4f',
+    [RefundStatus.COMPLETED]: '#999999',
   }
   return colorMap[status] || '#333333'
 }
@@ -102,13 +107,13 @@ const getStatusColor = (status: string) => {
 // 查询列表
 const queryList = async (pageNo: number, pageSize: number) => {
   try {
-    const res = await getAfterSaleList({
-      pageNo,
+    const res = await getRefundList({
+      pageNum: pageNo,
       pageSize,
       status: activeTab.value === 'all' ? undefined : activeTab.value,
     })
-    if (res.code === 200) {
-      paging.value.complete(res.data.records)
+    if (res.code === 200 && res.data) {
+      paging.value.complete(res.data.list)
     }
   } catch (error: any) {
     showToast(error.message || '获取数据失败')
@@ -126,15 +131,15 @@ const goLogistics = (id: number) => {
   router.navigate(`/pages-sub/order/logistics?afterSaleId=${id}`)
 }
 
-// 取消售后
+// 取消退款
 const cancelAfterSale = async (id: number) => {
   try {
-    const { confirm } = await showModal({
+    const result = await showModal({
       title: '提示',
-      content: '确定要取消售后申请吗？',
+      content: '确定要取消退款申请吗？',
     })
-    if (confirm) {
-      const res = await cancelAfterSaleApi(id)
+    if (result?.confirm) {
+      const res = await cancelRefund(id)
       if (res.code === 200) {
         showToast('取消成功')
         // 刷新列表
@@ -211,10 +216,20 @@ watch(
           color: #999;
         }
 
-        .goods-price {
-          font-size: 32rpx;
-          font-weight: bold;
-          color: #ff4d4f;
+        .refund-info {
+          margin-top: 8rpx;
+          font-size: 24rpx;
+          color: #666;
+
+          .refund-amount {
+            display: block;
+            margin-bottom: 4rpx;
+            color: #ff4d4f;
+          }
+
+          .refund-reason {
+            display: block;
+          }
         }
       }
     }

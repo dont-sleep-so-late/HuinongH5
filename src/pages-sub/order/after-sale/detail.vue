@@ -1,5 +1,5 @@
 <template>
-  <view class="after-sale-detail">
+  <view class="after-sale-detail" v-if="detail">
     <!-- 状态卡片 -->
     <view class="status-card">
       <view class="status-text">{{ getStatusText(detail.status) }}</view>
@@ -8,49 +8,29 @@
 
     <!-- 商品信息 -->
     <view class="card">
-      <view class="card-title">商品信息</view>
+      <view class="card-title">退款信息</view>
       <view class="goods-info">
-        <image class="goods-image" :src="detail.goodsImage" mode="aspectFill" />
         <view class="goods-detail">
-          <text class="goods-name">{{ detail.goodsName }}</text>
-          <text class="goods-spec">{{ detail.goodsSpec }}</text>
-          <text class="goods-price">¥{{ detail.goodsPrice }}</text>
+          <text class="goods-name">退款金额：¥{{ detail.refundAmount }}</text>
+          <text class="goods-spec">退款原因：{{ detail.reason }}</text>
+          <text class="goods-desc" v-if="detail.description">
+            退款说明：{{ detail.description }}
+          </text>
         </view>
       </view>
     </view>
 
-    <!-- 售后信息 -->
-    <view class="card">
-      <view class="card-title">售后信息</view>
-      <view class="info-list">
-        <view class="info-item">
-          <text class="label">售后类型</text>
-          <text class="value">{{ detail.type === 'refund' ? '仅退款' : '退货退款' }}</text>
-        </view>
-        <view class="info-item">
-          <text class="label">申请原因</text>
-          <text class="value">{{ detail.reason }}</text>
-        </view>
-        <view class="info-item">
-          <text class="label">退款金额</text>
-          <text class="value price">¥{{ detail.refundAmount }}</text>
-        </view>
-        <view class="info-item">
-          <text class="label">申请说明</text>
-          <text class="value">{{ detail.description || '无' }}</text>
-        </view>
-        <view class="info-item">
-          <text class="label">凭证图片</text>
-          <view class="image-list">
-            <image
-              v-for="(image, index) in detail.images"
-              :key="index"
-              :src="image"
-              mode="aspectFill"
-              @click="previewImage(image, detail.images)"
-            />
-          </view>
-        </view>
+    <!-- 凭证图片 -->
+    <view class="card" v-if="detail.images && detail.images.length > 0">
+      <view class="card-title">凭证图片</view>
+      <view class="image-list">
+        <image
+          v-for="(image, index) in detail.images"
+          :key="index"
+          :src="image"
+          mode="aspectFill"
+          @click="previewImage(image, detail.images || [])"
+        />
       </view>
     </view>
 
@@ -58,21 +38,24 @@
     <view class="card">
       <view class="card-title">处理进度</view>
       <view class="progress-list">
-        <view
-          class="progress-item"
-          v-for="(item, index) in detail.progress"
-          :key="index"
-          :class="{ active: index === 0 }"
-        >
-          <view class="time">{{ formatTime(item.time) }}</view>
-          <view class="content">{{ item.content }}</view>
-          <view class="operator" v-if="item.operator">操作人：{{ item.operator }}</view>
+        <view class="progress-item active">
+          <view class="time">{{ formatTime(detail.createTime) }}</view>
+          <view class="content">提交退款申请</view>
+        </view>
+        <view class="progress-item" v-if="detail.status !== 'PENDING'">
+          <view class="time">{{ formatTime(detail.updateTime) }}</view>
+          <view class="content">
+            {{ detail.status === 'APPROVED' ? '退款申请已通过' : '退款申请已拒绝' }}
+          </view>
+          <view class="operator" v-if="detail.rejectReason">
+            拒绝原因：{{ detail.rejectReason }}
+          </view>
         </view>
       </view>
     </view>
 
     <!-- 底部按钮 -->
-    <view class="footer" v-if="detail.status === 'pending'">
+    <view class="footer" v-if="detail.status === 'PENDING'">
       <wd-button size="large" @click="cancelAfterSale">取消申请</wd-button>
     </view>
   </view>
@@ -83,29 +66,29 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast, showModal } from '@/utils/toast'
 import { formatTime } from '@/utils/time'
-import { getAfterSaleDetail, cancelAfterSale as cancelAfterSaleApi } from '@/api/order'
+import { getRefundDetail, cancelRefund, type RefundDetail, type RefundStatus } from '@/api/refund'
 
 const router = useRouter()
-const detail = ref<any>({})
+const detail = ref<RefundDetail | null>(null)
 
 // 获取状态文本
-const getStatusText = (status: string) => {
-  const statusMap: Record<string, string> = {
-    pending: '处理中',
-    approved: '已通过',
-    rejected: '已拒绝',
-    canceled: '已取消',
+const getStatusText = (status: RefundStatus) => {
+  const statusMap: Record<RefundStatus, string> = {
+    PENDING: '处理中',
+    APPROVED: '已通过',
+    REJECTED: '已拒绝',
+    COMPLETED: '已完成',
   }
   return statusMap[status] || status
 }
 
 // 获取状态描述
-const getStatusDesc = (status: string) => {
-  const descMap: Record<string, string> = {
-    pending: '商家正在处理您的售后申请',
-    approved: '商家已同意您的售后申请',
-    rejected: '商家已拒绝您的售后申请',
-    canceled: '您已取消售后申请',
+const getStatusDesc = (status: RefundStatus) => {
+  const descMap: Record<RefundStatus, string> = {
+    PENDING: '商家正在处理您的退款申请',
+    APPROVED: '商家已同意您的退款申请',
+    REJECTED: '商家已拒绝您的退款申请',
+    COMPLETED: '退款已完成',
   }
   return descMap[status] || ''
 }
@@ -118,8 +101,8 @@ const getDetail = async () => {
       showToast('参数错误')
       return
     }
-    const res = await getAfterSaleDetail(Number(id))
-    if (res.code === 200) {
+    const res = await getRefundDetail(Number(id))
+    if (res.code === 200 && res.data) {
       detail.value = res.data
     }
   } catch (error: any) {
@@ -135,15 +118,16 @@ const previewImage = (current: string, urls: string[]) => {
   })
 }
 
-// 取消售后
+// 取消退款
 const cancelAfterSale = async () => {
+  if (!detail.value) return
   try {
-    const { confirm } = await showModal({
+    const result = await showModal({
       title: '提示',
-      content: '确定要取消售后申请吗？',
+      content: '确定要取消退款申请吗？',
     })
-    if (confirm) {
-      const res = await cancelAfterSaleApi(detail.value.id)
+    if (result?.confirm) {
+      const res = await cancelRefund(detail.value.orderId)
       if (res.code === 200) {
         showToast('取消成功')
         // 刷新详情

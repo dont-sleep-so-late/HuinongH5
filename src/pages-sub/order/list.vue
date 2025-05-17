@@ -160,6 +160,7 @@ const getStatusText = (status: OrderStatus) => {
     shipped: '待收货',
     completed: '已完成',
     cancelled: '已取消',
+    refunded: '已退款',
   }
   return statusMap[status] || '未知状态'
 }
