@@ -243,8 +243,11 @@ const goToCart = () => {
 
 // 联系卖家
 const handleContactSeller = () => {
-  console.log('联系卖家')
-  router.navigate('/pages-sub/chat/detail')
+  router.navigate('/pages-sub/chat/detail', {
+    targetId: goodsInfo.value.sellerId,
+    name: goodsInfo.value.sellerName,
+    role: 'seller',
+  })
 }
 
 // 页面加载
@@ -389,11 +392,11 @@ onMounted(() => {
       display: flex;
       flex-direction: column;
       align-items: center;
-      margin-right: 40rpx;
+      margin-right: 29rpx;
 
       text {
         margin-top: 4rpx;
-        font-size: 24rpx;
+        font-size: 22rpx;
         color: #666;
       }
     }

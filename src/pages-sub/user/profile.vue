@@ -87,11 +87,13 @@ const handleUploadAvatar = async () => {
       const res = await updateAvatar(tempFilePaths[0])
 
       // 更新用户信息
-      if (userStore.userInfo && res.data?.avatarUrl) {
-        form.avatar = res.data.avatarUrl
+      if (userStore.userInfo && res.code === 200 && res.data) {
+        // 去除返回URL中的引号
+        const avatarUrl = res.data.replace(/["']/g, '')
+        form.avatar = avatarUrl
         userStore.updateUserInfo({
           ...userStore.userInfo,
-          avatar: res.data.avatarUrl,
+          avatar: avatarUrl,
         })
         showToast('头像更新成功', { icon: 'success' })
       } else {

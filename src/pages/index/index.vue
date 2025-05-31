@@ -5,6 +5,9 @@
     navigationStyle: 'custom',
     navigationBarTitleText: '首页',
   },
+  enablePullDownRefresh: true,
+  backgroundTextStyle: 'dark',
+  onReachBottomDistance: 50,
 }
 </route>
 <template>
@@ -106,17 +109,13 @@
         </view>
       </view>
 
-      <z-paging
-        ref="paging"
-        v-model="goodsList"
-        @query="queryList"
-        :show-refresher-when-reload="true"
-        :auto-shows-back-to-top="true"
-        :loading-more-no-more-text="'没有更多了'"
-        :default-page-size="10"
-        :fixed="false"
-        height="800"
-        :auto="true"
+      <scroll-view
+        scroll-y
+        class="goods-scroll"
+        @scrolltolower="loadMore"
+        :refresher-enabled="true"
+        :refresher-triggered="isRefreshing"
+        @refresherrefresh="onRefresh"
       >
         <view class="goods-grid">
           <view
@@ -147,7 +146,7 @@
             </view>
           </view>
         </view>
-      </z-paging>
+      </scroll-view>
     </view>
   </view>
 </template>
@@ -205,7 +204,6 @@ const handleBannerClick = (url?: string) => {
 
 // 商品列表数据
 const goodsList = ref<ProductBase[]>([])
-const paging = ref<any>(null)
 const sortField = ref<SortField>('time')
 const sortOrder = ref<SortOrder>('desc')
 
@@ -220,86 +218,83 @@ const priceIcon = computed(() => {
   return 'icon-arrow-up-down'
 })
 
-// 查询商品列表
-const queryList = async (pageNo: number, pageSize: number) => {
-  try {
-    console.log('开始查询商品列表:', {
-      pageNo,
-      pageSize,
-      sortField: sortField.value,
-      sortOrder: sortOrder.value,
-    })
-    const res = await getProductList({
-      pageNum: pageNo,
-      pageSize,
-      sortField: sortField.value,
-      sortOrder: sortOrder.value,
-    })
+// 分页相关数据
+const pageNum = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const isLoading = ref(false)
+const hasMore = ref(true)
+const isRefreshing = ref(false)
 
-    console.log('商品列表响应:', res)
+// 查询商品列表
+const queryList = async (isRefresh = false) => {
+  if (isLoading.value) return
+  try {
+    isLoading.value = true
+    if (isRefresh) {
+      pageNum.value = 1
+      goodsList.value = []
+    }
+
+    const res = await getProductList({
+      pageNum: pageNum.value,
+      pageSize: pageSize.value,
+      sortField: sortField.value,
+      sortOrder: sortOrder.value,
+    })
 
     if (res.code === 200 && res.data) {
       const pageData = res.data as unknown as PageResponse<ProductBase>
-      console.log('解析后的商品数据:', pageData)
-
-      // 手动更新商品列表
       const newList = pageData.records || []
-      if (pageNo === 1) {
+
+      if (isRefresh) {
         goodsList.value = newList
       } else {
         goodsList.value = [...goodsList.value, ...newList]
       }
-      console.log('更新后的商品列表:', goodsList.value)
 
-      return {
-        list: newList,
-        total: pageData.total || 0,
-        pageSize: pageData.size || pageSize,
-        pageNo: pageData.current || pageNo,
+      total.value = pageData.total || 0
+      hasMore.value = goodsList.value.length < total.value
+
+      if (!isRefresh) {
+        pageNum.value++
       }
-    }
-    return {
-      list: [],
-      total: 0,
-      pageSize,
-      pageNo,
     }
   } catch (error: any) {
     console.error('获取商品列表失败:', error)
     showToast(error.message || '获取商品列表失败')
-    return {
-      list: [],
-      total: 0,
-      pageSize,
-      pageNo,
-    }
+  } finally {
+    isLoading.value = false
+    isRefreshing.value = false
   }
 }
 
-// 监听商品列表变化
-watch(
-  goodsList,
-  (newVal) => {
-    console.log('商品列表监听到变化:', newVal)
-  },
-  { deep: true },
-)
+// 处理下拉刷新
+const onRefresh = () => {
+  isRefreshing.value = true
+  queryList(true)
+}
+
+// 处理上拉加载更多
+const loadMore = () => {
+  if (hasMore.value && !isLoading.value) {
+    queryList()
+  }
+}
 
 // 处理排序方式切换
 const handleSort = (field: SortField) => {
   if (sortField.value === field) return
   sortField.value = field
   sortOrder.value = 'desc'
-  goodsList.value = [] // 清空当前列表
-  paging.value?.reload()
+  queryList(true)
 }
 
 // 处理价格排序
 const handleSortPrice = () => {
   sortField.value = 'price'
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-  goodsList.value = [] // 清空当前列表
-  paging.value?.reload()
+  queryList(true)
 }
 
 // 页面跳转方法
@@ -364,10 +359,7 @@ onMounted(() => {
     getUserInfo()
   }
   // 初始加载商品列表
-  nextTick(() => {
-    console.log('开始加载商品列表')
-    paging.value?.reload()
-  })
+  queryList(true)
 })
 </script>
 
@@ -548,6 +540,10 @@ onMounted(() => {
         }
       }
     }
+  }
+
+  .goods-scroll {
+    height: calc(100% - 88rpx);
   }
 
   .goods-grid {

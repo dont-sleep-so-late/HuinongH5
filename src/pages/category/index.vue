@@ -378,7 +378,6 @@ onMounted(() => {
           font-weight: 600;
           line-height: 1.4;
           color: #333;
-          @in (2);
         }
 
         .goods-desc {

@@ -31,7 +31,12 @@
         <text class="iconfont icon-arrow-right"></text>
       </view>
       <view class="goods-list">
-        <view v-for="item in orderInfo.orderItems" :key="item.productId" class="goods-item">
+        <view
+          v-for="item in orderInfo.orderItems"
+          :key="item.productId"
+          class="goods-item"
+          @click="viewProductDetail(item.productId)"
+        >
           <image :src="item.productImage" mode="aspectFill" class="goods-image" />
           <view class="goods-info">
             <text class="goods-name">{{ item.productName }}</text>
@@ -45,7 +50,7 @@
       </view>
       <view class="delivery-info">
         <text>配送方式</text>
-        <text>{{ orderInfo.deliveryType !== 'express' ? '到店自提' : '快递配送' }}</text>
+        <text>{{ orderInfo.deliveryType == 'express' ? '到店自提' : '快递配送' }}</text>
       </view>
       <view class="remark" v-if="orderInfo.remark">
         <text>备注</text>
@@ -76,6 +81,17 @@
 
     <!-- 订单信息 -->
     <view class="order-info-section">
+      <!-- 物流信息 -->
+      <view class="logistics-section" v-if="orderInfo.status === 'shipped'">
+        <view class="section-title">物流信息</view>
+        <view class="map-container" id="delivery-map"></view>
+        <view class="logistics-info">
+          <view class="logistics-item" v-for="(item, index) in logisticsInfo" :key="index">
+            <view class="time">{{ item.time }}</view>
+            <view class="content">{{ item.content }}</view>
+          </view>
+        </view>
+      </view>
       <view class="info-item">
         <text>订单编号</text>
         <view class="copy-wrapper">
@@ -127,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
 import {
@@ -141,10 +157,36 @@ import { createPayOrder, getPayResult } from '@/api/pay'
 import type { ApiResponse } from '@/types/api'
 import type { PayResult } from '@/api/pay'
 
+// 高德地图类型定义
+declare global {
+  interface Window {
+    AMap: any
+  }
+}
+
 const router = useRouter()
 
 // 订单信息
 const orderInfo = ref<OrderDetail | null>(null)
+
+// 物流信息
+const logisticsInfo = ref([
+  {
+    time: '2024-03-20 14:30',
+    content: '快件已到达【北京市朝阳区】',
+  },
+  {
+    time: '2024-03-20 12:15',
+    content: '快件已从【北京市海淀区】发出',
+  },
+  {
+    time: '2024-03-20 10:00',
+    content: '快件已揽收',
+  },
+])
+
+// 地图实例
+let map: any = null
 
 // 获取订单状态文本
 const getStatusText = (status: OrderStatus) => {
@@ -208,12 +250,17 @@ const handleCancelOrder = () => {
 // 获取订单详情
 const loadOrderDetail = async () => {
   try {
-    const { orderId } = router.query()
-    console.log(router.query())
+    const query = router.query()
+    // 从URL中获取订单ID，支持两种格式：
+    // 1. 普通跳转：orderId=xxx
+    // 2. 支付回调：out_trade_no=xxx
+    const orderId = query.orderId || query.out_trade_no
+
     if (!orderId) {
       showToast('参数错误')
       return
     }
+
     const res = await getOrderDetail(Number(orderId))
     if (res.code === 200 && res.data) {
       orderInfo.value = res.data as unknown as OrderDetail
@@ -297,13 +344,9 @@ const payOrder = async () => {
     const res = await createPayOrder(String(orderInfo.value.orderId), paymentMethod)
 
     if (res.code === 200 && res.data) {
-      const payData = res.data.paymentForm
-      // 使用web-view打开支付页面
-      uni.navigateTo({
-        url: `/pages-sub/common/web-view?html=${encodeURIComponent(payData)}&title=支付`,
-      })
-      // 启动轮询查询支付结果
-      startPollingPayResult(String(orderInfo.value.orderId))
+      const PayHtml = res.data
+      document.querySelector('body').innerHTML = PayHtml
+      window.document.forms[0].submit()
     } else {
       showToast('创建支付订单失败')
     }
@@ -374,9 +417,108 @@ const applyRefund = () => {
   router.navigate(`/pages-sub/order/after-sale/apply?orderId=${orderInfo.value.orderId}`)
 }
 
+// 初始化地图
+const initMap = () => {
+  if (!orderInfo.value || orderInfo.value.status !== 'shipped') return
+
+  // 确保高德地图脚本已加载
+  if (typeof window.AMap === 'undefined') {
+    const script = document.createElement('script')
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=2198e11db9d26efd65e305e5109c2385`
+    script.async = true
+    script.onload = () => {
+      createMap()
+    }
+    document.head.appendChild(script)
+  } else {
+    createMap()
+  }
+}
+
+// 创建地图
+const createMap = () => {
+  // 创建地图实例
+  map = new window.AMap.Map('delivery-map', {
+    zoom: 11,
+    center: [116.397428, 39.90923], // 默认中心点
+  })
+
+  // 添加物流轨迹点
+  const path = [
+    [116.397428, 39.90923], // 起点
+    [116.397428, 39.91923], // 终点
+  ]
+
+  // 创建物流轨迹线
+  const polyline = new window.AMap.Polyline({
+    path,
+    strokeColor: '#FF6B6B',
+    strokeWeight: 6,
+    strokeStyle: 'solid',
+  })
+
+  // 添加起点标记
+  const startMarker = new window.AMap.Marker({
+    position: path[0],
+    icon: new window.AMap.Icon({
+      size: new window.AMap.Size(25, 34),
+      image: 'https://webapi.amap.com/theme/v1.3/markers/n/start.png',
+      imageSize: new window.AMap.Size(25, 34),
+    }),
+  })
+
+  // 添加终点标记
+  const endMarker = new window.AMap.Marker({
+    position: path[1],
+    icon: new window.AMap.Icon({
+      size: new window.AMap.Size(25, 34),
+      image: 'https://webapi.amap.com/theme/v1.3/markers/n/end.png',
+      imageSize: new window.AMap.Size(25, 34),
+    }),
+  })
+
+  // 将轨迹线和标记添加到地图
+  map.add([polyline, startMarker, endMarker])
+
+  // 调整地图视野以包含所有轨迹点
+  map.setFitView()
+}
+
+// 查看商品详情
+const viewProductDetail = (productId: number) => {
+  router.navigate(`/pages-sub/goods/detail?id=${productId}`)
+}
+
 // 页面加载
 onMounted(() => {
+  const query = router.query()
+
+  // 处理支付回调参数
+  if (query.trade_no && query.out_trade_no) {
+    // 显示支付成功提示
+    showToast('支付成功', { icon: 'success' })
+
+    // 记录支付信息
+    console.log('支付信息：', {
+      orderId: query.out_trade_no,
+      tradeNo: query.trade_no,
+      amount: query.total_amount,
+      payTime: query.timestamp,
+    })
+  }
+
   loadOrderDetail()
+  // 延迟初始化地图，确保DOM已经渲染
+  setTimeout(() => {
+    initMap()
+  }, 500)
+})
+
+// 页面卸载时销毁地图实例
+onUnmounted(() => {
+  if (map) {
+    map.destroy()
+  }
 })
 </script>
 
@@ -599,6 +741,50 @@ onMounted(() => {
   margin: 20rpx;
   background-color: #fff;
   border-radius: 16rpx;
+
+  .logistics-section {
+    padding-bottom: 30rpx;
+    margin-bottom: 30rpx;
+    border-bottom: 1rpx solid #eee;
+
+    .section-title {
+      margin-bottom: 20rpx;
+      font-size: 28rpx;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .map-container {
+      width: 100%;
+      height: 400rpx;
+      margin-bottom: 20rpx;
+      overflow: hidden;
+      border-radius: 8rpx;
+    }
+
+    .logistics-info {
+      .logistics-item {
+        display: flex;
+        margin-bottom: 20rpx;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .time {
+          width: 200rpx;
+          font-size: 24rpx;
+          color: #999;
+        }
+
+        .content {
+          flex: 1;
+          font-size: 26rpx;
+          color: #333;
+        }
+      }
+    }
+  }
 
   .info-item {
     display: flex;

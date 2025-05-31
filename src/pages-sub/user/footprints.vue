@@ -24,14 +24,13 @@
           <view class="goods-info">
             <text class="goods-name">{{ item.productName }}</text>
             <view class="shop-info">
-              <image :src="item.sellerAvatar" mode="aspectFill" class="shop-avatar" />
               <text class="shop-name">{{ item.sellerName }}</text>
             </view>
             <view class="goods-bottom">
               <text class="goods-price">¥{{ item.price }}</text>
               <text class="goods-sales">销量 {{ item.salesVolume }}</text>
             </view>
-            <text class="browsing-time">{{ item.browsingTime }}</text>
+            <text class="browsing-time">{{ item.browsingTime || '暂无浏览时间' }}</text>
           </view>
         </view>
       </view>
@@ -44,7 +43,6 @@
 
       <!-- 空状态 -->
       <view class="empty" v-if="goodsList.length === 0 && !isLoading">
-        <image src="/static/images/empty-footprint.png" mode="aspectFit" class="empty-icon" />
         <text>暂无浏览记录</text>
       </view>
     </scroll-view>
@@ -55,8 +53,32 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
-import { getBrowsingHistory, clearBrowsingHistory, type BrowsingHistory } from '@/api/profile'
-import type { PageResponse } from '@/types/api'
+import { getBrowsingHistory, clearBrowsingHistory } from '@/api/profile'
+
+interface BrowsingHistory {
+  productId: number
+  productName: string
+  mainImage: string
+  price: number
+  salesVolume: number
+  browsingTime: string | null
+  sellerId: number
+  sellerName: string
+}
+
+interface PageData {
+  total: number
+  pages: number
+  pageNum: number
+  pageSize: number
+  list: BrowsingHistory[]
+}
+
+interface ApiResponse {
+  code: number
+  message: string
+  data: PageData
+}
 
 const router = useRouter()
 
@@ -75,20 +97,20 @@ const loadGoods = async () => {
   isLoading.value = true
 
   try {
-    const res = await getBrowsingHistory({
+    const res = (await getBrowsingHistory({
       pageNum: page.value,
       pageSize: pageSize.value,
-    })
+    })) as unknown as ApiResponse
 
     if (res.code === 200 && res.data) {
-      const pageData = res.data as unknown as PageResponse<BrowsingHistory>
+      const { list, total, pages, pageNum: currentPage } = res.data
       if (page.value === 1) {
-        goodsList.value = pageData.records
+        goodsList.value = list
       } else {
-        goodsList.value = [...goodsList.value, ...pageData.records]
+        goodsList.value = [...goodsList.value, ...list]
       }
       // 如果没有更多数据了，禁止继续加载
-      if (pageData.current >= pageData.pages) {
+      if (currentPage >= pages) {
         isLoading.value = false
       } else {
         page.value++
@@ -209,13 +231,6 @@ onMounted(() => {
         display: flex;
         align-items: center;
         margin-bottom: 16rpx;
-
-        .shop-avatar {
-          width: 32rpx;
-          height: 32rpx;
-          margin-right: 8rpx;
-          border-radius: 50%;
-        }
 
         .shop-name {
           font-size: 24rpx;

@@ -6,6 +6,21 @@
       <text class="edit-btn" @click="isEdit = !isEdit">{{ isEdit ? '完成' : '编辑' }}</text>
     </view>
 
+    <!-- 搜索栏 -->
+    <view class="search-bar">
+      <view class="search-input-wrap">
+        <text class="iconfont icon-search"></text>
+        <input
+          type="text"
+          class="search-input"
+          v-model="searchKeyword"
+          placeholder="搜索商品名称"
+          @input="handleSearch"
+        />
+        <text class="clear-btn" v-if="searchKeyword" @click="clearSearch">×</text>
+      </view>
+    </view>
+
     <!-- 购物车为空 -->
     <view class="empty" v-if="cartList.length === 0">
       <image src="" mode="aspectFit" class="empty-icon" />
@@ -93,6 +108,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
+import { debounce } from '@/utils/index'
 import {
   getCartList,
   updateCartQuantity,
@@ -112,6 +128,29 @@ const isEdit = ref(false)
 
 // 购物车数据
 const cartList = ref<CartItem[]>([])
+const originalCartList = ref<CartItem[]>([])
+const searchKeyword = ref('')
+
+// 搜索处理
+const handleSearch = debounce(() => {
+  if (!searchKeyword.value) {
+    cartList.value = originalCartList.value
+    return
+  }
+
+  const keyword = searchKeyword.value.toLowerCase()
+  cartList.value = originalCartList.value.filter(
+    (item) =>
+      item.productName.toLowerCase().includes(keyword) ||
+      `${item.specName} ${item.specValue}`.toLowerCase().includes(keyword),
+  )
+}, 300)
+
+// 清除搜索
+const clearSearch = () => {
+  searchKeyword.value = ''
+  cartList.value = originalCartList.value
+}
 const cartSummary = computed(() => {
   const items = cartList.value
   return {
@@ -129,7 +168,9 @@ const loadCartList = async () => {
   try {
     const response = await getCartList()
     if (response.code === 200 && response.data) {
-      cartList.value = response.data as unknown as CartListResponse
+      const data = response.data as unknown as CartListResponse
+      cartList.value = data
+      originalCartList.value = data
     } else {
       uni.showToast({
         title: response.message || '加载购物车失败',
@@ -296,6 +337,50 @@ onShow(() => {
   min-height: 100vh;
   padding-bottom: calc(120rpx + env(safe-area-inset-bottom) + 100rpx);
   background-color: #f7f8fa;
+}
+
+.search-bar {
+  padding: 20rpx 32rpx;
+  background: #fff;
+  border-bottom: 1px solid #f5f5f5;
+
+  .search-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 72rpx;
+    padding: 0 24rpx;
+    background: #f7f8fa;
+    border-radius: 36rpx;
+
+    .icon-search {
+      margin-right: 12rpx;
+      font-size: 32rpx;
+      color: #999;
+    }
+
+    .search-input {
+      flex: 1;
+      height: 100%;
+      font-size: 28rpx;
+      color: #333;
+      background: transparent;
+
+      &::placeholder {
+        color: #999;
+      }
+    }
+
+    .clear-btn {
+      padding: 0 12rpx;
+      font-size: 32rpx;
+      color: #999;
+
+      &:active {
+        opacity: 0.8;
+      }
+    }
+  }
 }
 
 .nav-bar {

@@ -68,7 +68,6 @@ const filterItems = [
   { name: '综合', sortable: false },
   { name: '销量', sortField: 'sales' as const },
   { name: '价格', sortField: 'price' as const },
-  { name: '筛选', sortable: false },
 ]
 
 // 商品列表

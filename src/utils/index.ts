@@ -155,3 +155,16 @@ export const getEnvBaseUploadUrl = () => {
 
   return baseUploadUrl
 }
+
+export const debounce = (fn: any, delay: number) => {
+  let timer: number | null = null
+  return function (this: any, ...args: any[]) {
+    if (timer) {
+      clearTimeout(timer)
+    }
+    timer = setTimeout(() => {
+      fn.apply(this, args)
+      timer = null
+    }, delay)
+  }
+}

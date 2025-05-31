@@ -61,7 +61,7 @@ export const updatePassword = (data: UpdatePasswordParams) => {
 
 // 头像上传响应数据
 interface AvatarResponse {
-  avatarUrl: string
+  data: string
 }
 
 // 更新头像

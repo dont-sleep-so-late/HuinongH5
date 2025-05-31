@@ -11,6 +11,25 @@
       </view>
     </view>
 
+    <!-- 商品信息卡片 -->
+    <view class="product-card" v-if="currentProduct">
+      <image :src="currentProduct.mainImage" mode="aspectFill" class="product-image" />
+      <view class="product-info">
+        <text class="product-name">{{ currentProduct.name }}</text>
+        <view class="product-meta">
+          <text class="product-price">¥{{ currentProduct.price }}</text>
+          <text class="product-sales">销量 {{ currentProduct.salesVolume }}</text>
+        </view>
+        <view class="seller-info">
+          <image :src="chatInfo.avatar" mode="aspectFill" class="seller-avatar" />
+          <text class="seller-name">{{ chatInfo.name }}</text>
+          <view class="follow-btn" :class="{ followed: isFollowing }" @click="handleFollow">
+            {{ isFollowing ? '已关注' : '关注' }}
+          </view>
+        </view>
+      </view>
+    </view>
+
     <!-- 消息列表 -->
     <scroll-view
       class="message-list"
@@ -43,11 +62,16 @@
           <view class="message-content">
             <image
               v-if="message.senderId !== currentUserId"
-              :src="message.senderAvatar"
+              :src="message.receiverAvatar"
               class="avatar"
               mode="aspectFill"
             />
-            <view class="bubble" :class="{ 'bubble-self': message.senderId === currentUserId }">
+            <view
+              class="bubble"
+              :class="{
+                'bubble-self': message.senderId === currentUserId,
+              }"
+            >
               <!-- 文本消息 -->
               <text v-if="message.messageType === 'text'" class="text">{{ message.content }}</text>
               <!-- 图片消息 -->
@@ -97,11 +121,18 @@
           :cursor-spacing="20"
           :show-confirm-bar="false"
           :hold-keyboard="true"
+          :focus="false"
+          :auto-height="true"
+          :maxlength="200"
           @focus="onInputFocus"
           @blur="onInputBlur"
           @confirm="sendChatMessage"
         />
-        <view class="send-btn" :class="{ active: inputMessage.trim() }" @click="sendChatMessage">
+        <view
+          class="send-btn"
+          :class="{ active: inputMessage.trim() }"
+          @click="() => sendChatMessage()"
+        >
           发送
         </view>
       </view>
@@ -173,6 +204,39 @@ const lastMessageId = computed(() => {
   return lastMessage ? 'msg-' + lastMessage.id : ''
 })
 
+// 商品信息
+interface Product {
+  id: number
+  name: string
+  mainImage: string
+  price: number
+  salesVolume: number
+}
+
+const currentProduct = ref<Product | null>(null)
+const isFollowing = ref(false)
+
+// 关注商家
+const handleFollow = async () => {
+  if (!chatInfo.value.id) return
+
+  try {
+    const res = await uni.request({
+      url: `/m/profile/favorites/sellers/${chatInfo.value.id}`,
+      method: 'POST',
+    })
+
+    if (res.statusCode === 200) {
+      isFollowing.value = !isFollowing.value
+      showToast(isFollowing.value ? '关注成功' : '取消关注成功')
+    } else {
+      throw new Error('操作失败')
+    }
+  } catch (error: any) {
+    showToast(error.message || '操作失败')
+  }
+}
+
 // 判断是否需要显示时间
 const shouldShowTime = (message: ChatMessage) => {
   const index = messages.value.findIndex((m) => m.id === message.id)
@@ -209,6 +273,76 @@ const insertEmoji = (emoji: string) => {
   inputMessage.value += emoji
 }
 
+// 发送消息
+const sendChatMessage = async (messageType: MessageType = 'text', content?: string) => {
+  const messageContent = content || inputMessage.value.trim()
+  if (!messageContent) return
+
+  try {
+    const res = await sendMessage({
+      receiverId: chatInfo.value.id,
+      content: messageContent,
+      messageType,
+    })
+
+    if (res.code === 200 && res.data) {
+      messages.value.push(res.data)
+      // 清空输入框
+      if (messageType === 'text') {
+        inputMessage.value = ''
+      }
+      scrollToBottom()
+    } else {
+      throw new Error(res.message || '发送失败')
+    }
+  } catch (error: any) {
+    showToast(error.message || '发送失败')
+    console.error('发送消息失败:', error)
+  }
+}
+
+// 发送商品消息
+const sendProductMessage = async (productId: number) => {
+  try {
+    const res = await sendMessage({
+      receiverId: chatInfo.value.id,
+      content: JSON.stringify({ productId }),
+      messageType: 'product',
+    })
+
+    if (res.code === 200 && res.data) {
+      messages.value.push(res.data)
+      scrollToBottom()
+    } else {
+      throw new Error(res.message || '发送商品消息失败')
+    }
+  } catch (error: any) {
+    showToast(error.message || '发送商品消息失败')
+    console.error('发送商品消息失败:', error)
+  }
+}
+
+// 发送图片消息
+const sendImageMessage = async (imageUrl: string) => {
+  try {
+    const res = await sendMessage({
+      receiverId: chatInfo.value.id,
+      content: imageUrl,
+      messageType: 'image',
+    })
+
+    if (res.code === 200 && res.data) {
+      messages.value.push(res.data)
+      scrollToBottom()
+    } else {
+      throw new Error(res.message || '发送图片消息失败')
+    }
+  } catch (error: any) {
+    showToast(error.message || '发送图片消息失败')
+    console.error('发送图片消息失败:', error)
+  }
+}
+
 // 选择图片
 const chooseImage = () => {
   uni.chooseImage({
@@ -224,11 +358,18 @@ const chooseImage = () => {
         })
         const data = JSON.parse(uploadRes.data)
         if (data.code === 200 && data.data) {
-          await sendChatMessage('image', data.data.url)
+          await sendImageMessage(data.data.url)
+        } else {
+          throw new Error(data.message || '上传失败')
         }
       } catch (error: any) {
         showToast(error.message || '发送失败')
+        console.error('上传图片失败:', error)
       }
+    },
+    fail: (error) => {
+      console.error('选择图片失败:', error)
+      showToast('选择图片失败')
     },
   })
 }
@@ -247,7 +388,15 @@ const viewProduct = (product: ProductMessage) => {
 
 // 显示商品列表
 const showProductList = () => {
-  showToast('商品列表开发中')
+  uni.showActionSheet({
+    itemList: ['选择商品'],
+    success: (res) => {
+      if (res.tapIndex === 0) {
+        // TODO: 实现商品选择功能
+        showToast('商品列表开发中')
+      }
+    },
+  })
 }
 
 // 显示更多操作
@@ -309,31 +458,6 @@ const block = async () => {
   }
 }
 
-// 发送消息
-const sendChatMessage = async (messageType: MessageType = 'text', content?: string) => {
-  const messageContent = content || inputMessage.value.trim()
-  if (!messageContent) return
-
-  try {
-    const res = await sendMessage({
-      receiverId: chatInfo.value.id,
-      content: messageContent,
-      messageType,
-    })
-
-    if (res.code === 200 && res.data) {
-      messages.value.push(res.data)
-      // 清空输入框
-      if (messageType === 'text') {
-        inputMessage.value = ''
-      }
-      scrollToBottom()
-    }
-  } catch (error: any) {
-    showToast(error.message || '发送失败')
-  }
-}
-
 // 滚动到底部
 const scrollToBottom = () => {
   nextTick(() => {
@@ -380,8 +504,18 @@ const markMessageRead = async () => {
 
 // 获取页面参数
 onMounted(() => {
-  const query = uni.getLaunchOptionsSync()
-  const { targetId, name, role = 'seller' } = query.query || {}
+  const pages = getCurrentPages()
+  const currentPage = pages[pages.length - 1] as any
+  const {
+    targetId,
+    name,
+    role = 'seller',
+    productId,
+    productName,
+    productImage,
+    productPrice,
+    productSales,
+  } = currentPage?.options || {}
 
   if (targetId) {
     chatInfo.value = {
@@ -390,12 +524,28 @@ onMounted(() => {
       avatar: role === 'seller' ? '/static/shops/shop1.png' : '/static/avatar/default.png',
       role: role as 'buyer' | 'seller',
     }
-  }
 
-  // 获取聊天记录
-  loadMoreHistory()
-  // 标记已读
-  markMessageRead()
+    // 设置商品信息
+    if (productId) {
+      currentProduct.value = {
+        id: Number(productId),
+        name: decodeURIComponent(productName || ''),
+        mainImage: decodeURIComponent(productImage || ''),
+        price: Number(productPrice || 0),
+        salesVolume: Number(productSales || 0),
+      }
+    }
+
+    // 获取聊天记录
+    loadMoreHistory()
+    // 标记已读
+    markMessageRead()
+  } else {
+    showToast('聊天对象信息不完整')
+    setTimeout(() => {
+      router.back()
+    }, 1500)
+  }
 })
 
 // 页面卸载时清理
@@ -462,6 +612,85 @@ onUnmounted(() => {
   }
 }
 
+.product-card {
+  display: flex;
+  padding: 20rpx;
+  margin: 20rpx;
+  background-color: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+
+  .product-image {
+    width: 160rpx;
+    height: 160rpx;
+    margin-right: 20rpx;
+    border-radius: 12rpx;
+  }
+
+  .product-info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-between;
+
+    .product-name {
+      font-size: 28rpx;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .product-meta {
+      display: flex;
+      align-items: center;
+      margin: 12rpx 0;
+
+      .product-price {
+        margin-right: 20rpx;
+        font-size: 32rpx;
+        font-weight: bold;
+        color: #ff4d4f;
+      }
+
+      .product-sales {
+        font-size: 24rpx;
+        color: #999;
+      }
+    }
+
+    .seller-info {
+      display: flex;
+      align-items: center;
+
+      .seller-avatar {
+        width: 40rpx;
+        height: 40rpx;
+        margin-right: 12rpx;
+        border-radius: 50%;
+      }
+
+      .seller-name {
+        flex: 1;
+        font-size: 24rpx;
+        color: #666;
+      }
+
+      .follow-btn {
+        padding: 8rpx 24rpx;
+        font-size: 24rpx;
+        color: #fff;
+        background-color: #018d71;
+        border-radius: 24rpx;
+        transition: all 0.3s ease;
+
+        &.followed {
+          color: #999;
+          background-color: #f5f5f5;
+        }
+      }
+    }
+  }
+}
+
 .message-list {
   height: calc(100vh - 220rpx);
   padding: 20rpx;
@@ -510,7 +739,6 @@ onUnmounted(() => {
         border: 2rpx solid rgba(0, 0, 0, 0.05);
         border-radius: 40rpx;
       }
-
       .bubble {
         max-width: 60%;
         padding: 20rpx;
@@ -583,6 +811,12 @@ onUnmounted(() => {
         }
       }
     }
+
+    &.message-right {
+      .message-content {
+        flex-direction: row-reverse;
+      }
+    }
   }
 }
 
@@ -591,6 +825,7 @@ onUnmounted(() => {
   right: 0;
   bottom: 0;
   left: 0;
+  z-index: 1000;
   padding: 20rpx;
   background: linear-gradient(to bottom, #fff, rgba(255, 255, 255, 0.98));
   backdrop-filter: blur(10px);
@@ -610,21 +845,28 @@ onUnmounted(() => {
   }
 
   .input-box {
+    position: relative;
+    z-index: 1001;
     display: flex;
     align-items: flex-end;
 
     .input {
+      position: relative;
+      z-index: 1002;
       flex: 1;
-      height: 80rpx;
+      min-height: 80rpx;
       max-height: 160rpx;
       padding: 20rpx;
       margin-right: 20rpx;
       font-size: 28rpx;
+      line-height: 1.5;
       background-color: #f5f5f5;
       border-radius: 16rpx;
     }
 
     .send-btn {
+      position: relative;
+      z-index: 1002;
       width: 120rpx;
       height: 80rpx;
       font-size: 28rpx;

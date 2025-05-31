@@ -33,10 +33,10 @@
         <text class="number">{{ stats.favoriteProductCount }}</text>
         <text class="label">关注商品</text>
       </view>
-      <view class="stat-item" @click="navigateTo('/pages-sub/user/follow-shops')">
+      <!-- <view class="stat-item" @click="navigateTo('/pages-sub/user/follow-shops')">
         <text class="number">{{ stats.favoriteSellerCount }}</text>
         <text class="label">关注商家</text>
-      </view>
+      </view> -->
       <view class="stat-item" @click="navigateTo('/pages-sub/user/footprints')">
         <text class="number">{{ stats.browsingHistoryCount }}</text>
         <text class="label">浏览足迹</text>

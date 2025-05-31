@@ -94,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from '@/hooks/router'
 import { showToast } from '@/utils/toast'
 import {
@@ -224,14 +224,11 @@ const handleCancelOrder = async (order: OrderListItem) => {
 const payOrder = async (order: Order) => {
   const orderId = order.id
   // 创建支付订单
-  const res = await createPayOrder(orderId, 'ALIPAY')
+  const res = await createPayOrder(String(orderId), 'ALIPAY')
   if (res.code === 200 && res.data) {
     const PayHtml = res.data
-    // 使用web-view打开支付宝支付页面
     document.querySelector('body').innerHTML = PayHtml
     window.document.forms[0].submit()
-    // 启动轮询查询支付结果
-    startPollingPayResult(orderId)
   } else {
     showToast('创建支付订单失败')
   }
@@ -365,7 +362,14 @@ const onRefresh = async () => {
   orderList.value = []
   await loadOrders()
 }
-
+// 监听标签切换
+watch(activeTab, () => {
+  // 重置页码和列表
+  page.value = 1
+  orderList.value = []
+  // 重新加载订单列表
+  loadOrders()
+})
 // 页面加载
 onMounted(() => {
   // 获取页面参数
